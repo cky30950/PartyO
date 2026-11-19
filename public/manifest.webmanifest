@@ -2,14 +2,15 @@
   "name": "PartyO · 派對一條龍助手",
   "short_name": "PartyO",
   "description": "建立派對活動、一鍵匯出日曆邀請與 AA 計費收款追蹤",
-  "start_url": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#e11d48",
   "lang": "zh-HK",
   "icons": [
     {
-      "src": "/icon.svg",
+      "src": "./icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

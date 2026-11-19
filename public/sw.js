@@ -1,5 +1,5 @@
-const CACHE_NAME = 'partyo-shell-v1';
-const SHELL_ASSETS = ['/', '/manifest.webmanifest', '/icon.svg'];
+const CACHE_NAME = 'partyo-shell-v2';
+const SHELL_ASSETS = ['./', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

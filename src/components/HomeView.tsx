@@ -97,7 +97,7 @@ export function HomeView({ recentParties, onOpenParty, onRefreshList }: HomeView
       <header className="mx-auto max-w-2xl px-4 pt-8 pb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <img src="/icon.svg" alt="PartyO" className="h-10 w-10 rounded-xl shadow-sm" />
+            <img src="./icon.svg" alt="PartyO" className="h-10 w-10 rounded-xl shadow-sm" />
             <div>
               <h1 className="text-xl font-bold tracking-tight text-slate-900">PartyO</h1>
               <p className="text-xs text-slate-500">開局 · 日曆邀請 · AA 計費一條龍</p>
