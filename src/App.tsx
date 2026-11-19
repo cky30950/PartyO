@@ -14,6 +14,7 @@ export function App() {
   const [partyId, setPartyId] = useState<string | null>(() => readPartyIdFromUrl());
   const [party, setParty] = useState<Party | null>(null);
   const [loading, setLoading] = useState<boolean>(Boolean(partyId));
+  const [syncError, setSyncError] = useState<string>('');
   const [recentParties, setRecentParties] = useState<Party[]>(() => listRecentParties());
 
   const refreshList = useCallback(() => {
@@ -22,6 +23,7 @@ export function App() {
 
   const navigateToParty = useCallback((id: string | null) => {
     setPartyId(id);
+    setSyncError('');
     const url = new URL(window.location.href);
     if (id) {
       url.searchParams.set('party', id);
@@ -41,11 +43,13 @@ export function App() {
     if (!partyId) {
       setParty(null);
       setLoading(false);
+      setSyncError('');
       refreshList();
       return;
     }
 
     setLoading(true);
+    setSyncError('');
     const unsub = subscribeParty(
       partyId,
       (data) => {
@@ -53,7 +57,8 @@ export function App() {
         setLoading(false);
         refreshList();
       },
-      () => {
+      (err) => {
+        setSyncError(err.message);
         setLoading(false);
       }
     );
@@ -89,8 +94,10 @@ export function App() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-slate-50 px-4 text-center">
         <p className="text-base font-bold text-slate-800">搵唔到呢個派對活動</p>
-        <p className="text-xs text-slate-500">
-          連結可能已失效，或目前處於本機試用模式（尚未接駁 Firebase 雲端資料庫）。
+        <p className="max-w-sm text-xs text-slate-500">
+          {syncError
+            ? `連線錯誤：${syncError}（請檢查 Firestore 資料庫及安全規則設定）`
+            : '連結可能已失效，或該派對尚未建立。'}
         </p>
         <button
           type="button"

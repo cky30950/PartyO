@@ -9,11 +9,9 @@ import {
   Wallet,
   CalendarPlus,
   Cloud,
-  HardDrive,
 } from 'lucide-react';
 import type { Party } from '../types/party';
 import { formatPartyDateTime } from '../lib/calendar';
-import { isFirebaseConfigured } from '../lib/firebase';
 import { RsvpTab } from './RsvpTab';
 import { CalendarTab } from './CalendarTab';
 import { ExpensesTab } from './ExpensesTab';
@@ -71,22 +69,8 @@ export function PartyDashboard({ party, onBack, onUpdateParty }: PartyDashboardP
             </button>
 
             <div className="flex items-center gap-2">
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ${
-                  isFirebaseConfigured
-                    ? 'bg-emerald-50 text-emerald-700'
-                    : 'bg-amber-50 text-amber-700'
-                }`}
-              >
-                {isFirebaseConfigured ? (
-                  <>
-                    <Cloud className="h-3 w-3" /> 雲端同步中
-                  </>
-                ) : (
-                  <>
-                    <HardDrive className="h-3 w-3" /> 本機試用
-                  </>
-                )}
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700">
+                <Cloud className="h-3 w-3" /> 雲端同步中
               </span>
 
               <button
