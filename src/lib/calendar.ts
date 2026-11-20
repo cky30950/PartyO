@@ -119,6 +119,13 @@ export function formatPartyDateTime(startTime: string, endTime: string): string 
   return `${dateFmt.format(start)} ${timeFmt.format(start)} – ${dateFmt.format(end)} ${timeFmt.format(end)}`;
 }
 
+export function buildGoogleMapsUrl(location: string): string {
+  const trimmed = location.trim();
+  if (!trimmed) return 'https://www.google.com/maps/';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trimmed)}`;
+}
+
 export function buildWhatsAppInviteText(party: Party, shareUrl: string): string {
   const gcalUrl = buildGoogleCalendarUrl(party, shareUrl);
   const timeLabel = formatPartyDateTime(party.startTime, party.endTime);
@@ -126,6 +133,7 @@ export function buildWhatsAppInviteText(party: Party, shareUrl: string): string 
     `🎉 *${party.title}*`,
     `📅 時間：${timeLabel}`,
     party.location ? `📍 地點：${party.location}` : '',
+    party.location ? `🗺️ Google 地圖：${buildGoogleMapsUrl(party.location)}` : '',
     party.description ? `📝 備註：${party.description}` : '',
     '',
     `👉 撳入嚟填名 RSVP 同睇 AA 數：`,

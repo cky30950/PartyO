@@ -1,4 +1,4 @@
-import { doc, getDoc, onSnapshot, setDoc } from 'firebase/firestore';
+import { deleteDoc, doc, getDoc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Party } from '../types/party';
 
@@ -88,4 +88,10 @@ export function removeRecentParty(partyId: string): void {
   const map = readRecentMap();
   delete map[partyId];
   writeRecentMap(map);
+}
+
+export async function deleteParty(partyId: string): Promise<void> {
+  const ref = doc(db, 'parties', partyId);
+  await deleteDoc(ref);
+  removeRecentParty(partyId);
 }

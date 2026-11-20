@@ -6,10 +6,11 @@ import {
   ArrowRight,
   Trash2,
   Cloud,
+  MapPin,
 } from 'lucide-react';
 import type { Party } from '../types/party';
-import { generateId, removeRecentParty, saveParty } from '../lib/partyStore';
-import { formatPartyDateTime } from '../lib/calendar';
+import { deleteParty, generateId, saveParty } from '../lib/partyStore';
+import { buildGoogleMapsUrl, formatPartyDateTime } from '../lib/calendar';
 
 interface HomeViewProps {
   recentParties: Party[];
@@ -153,13 +154,25 @@ export function HomeView({ recentParties, onOpenParty, onRefreshList }: HomeView
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700">地點</label>
-                <input
-                  type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="例如：觀塘 / 銅鑼灣 Party Room"
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                />
+                <div className="mt-1 flex gap-1.5">
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="輸入商舖或地方名稱"
+                    className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  />
+                  <a
+                    href={buildGoogleMapsUrl(location)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={location.trim() ? `在 Google 地圖搜尋「${location.trim()}」` : '打開 Google 地圖搜尋商舖或地方'}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-brand-300 hover:bg-rose-50 hover:text-brand-600"
+                  >
+                    <MapPin className="h-3.5 w-3.5 text-brand-600" />
+                    地圖
+                  </a>
+                </div>
               </div>
 
               <div>
@@ -240,10 +253,19 @@ export function HomeView({ recentParties, onOpenParty, onRefreshList }: HomeView
                     </button>
                     <button
                       type="button"
-                      aria-label="從最近紀錄移除"
-                      onClick={() => {
-                        removeRecentParty(p.id);
-                        onRefreshList();
+                      aria-label="永久刪除派對（連同雲端資料）"
+                      onClick={async () => {
+                        const ok = window.confirm(
+                          `確定要永久刪除「${p.title}」嗎？\n這會同時刪除 Firebase 雲端資料，已分享的連結亦會失效。`
+                        );
+                        if (!ok) return;
+                        try {
+                          await deleteParty(p.id);
+                          onRefreshList();
+                        } catch (err) {
+                          const detail = err instanceof Error ? err.message : '刪除失敗';
+                          setErrorMsg(`刪除雲端資料失敗：${detail}`);
+                        }
                       }}
                       className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-rose-600"
                     >

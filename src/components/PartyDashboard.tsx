@@ -9,9 +9,11 @@ import {
   Wallet,
   CalendarPlus,
   Cloud,
+  Trash2,
 } from 'lucide-react';
 import type { Party } from '../types/party';
-import { formatPartyDateTime } from '../lib/calendar';
+import { buildGoogleMapsUrl, formatPartyDateTime } from '../lib/calendar';
+import { deleteParty } from '../lib/partyStore';
 import { RsvpTab } from './RsvpTab';
 import { CalendarTab } from './CalendarTab';
 import { ExpensesTab } from './ExpensesTab';
@@ -88,6 +90,28 @@ export function PartyDashboard({ party, onBack, onUpdateParty }: PartyDashboardP
                   </>
                 )}
               </button>
+
+              <button
+                type="button"
+                aria-label="刪除整個活動（連同雲端資料）"
+                title="永久刪除活動"
+                onClick={async () => {
+                  const ok = window.confirm(
+                    `確定要永久刪除「${party.title}」嗎？\n這會同時刪除 Firebase 雲端資料，所有已分享的連結亦會失效。`
+                  );
+                  if (!ok) return;
+                  try {
+                    await deleteParty(party.id);
+                    onBack();
+                  } catch (err) {
+                    const detail = err instanceof Error ? err.message : '刪除失敗';
+                    window.alert(`刪除雲端資料失敗：${detail}`);
+                  }
+                }}
+                className="inline-flex items-center justify-center rounded-xl p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
             </div>
           </div>
 
@@ -99,10 +123,15 @@ export function PartyDashboard({ party, onBack, onUpdateParty }: PartyDashboardP
                 {formatPartyDateTime(party.startTime, party.endTime)}
               </span>
               {party.location ? (
-                <span className="inline-flex items-center gap-1">
+                <a
+                  href={buildGoogleMapsUrl(party.location)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-slate-600 underline decoration-slate-300 underline-offset-2 transition hover:text-brand-600 hover:decoration-brand-400"
+                >
                   <MapPin className="h-3.5 w-3.5 text-brand-500" />
                   {party.location}
-                </span>
+                </a>
               ) : null}
             </div>
           </div>

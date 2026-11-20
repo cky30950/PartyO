@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Calendar, Download, ExternalLink, Copy, Check, MessageCircle } from 'lucide-react';
+import { Calendar, Download, ExternalLink, Copy, Check, MessageCircle, MapPin } from 'lucide-react';
 import type { Party } from '../types/party';
 import {
   buildGoogleCalendarUrl,
+  buildGoogleMapsUrl,
   buildWhatsAppInviteText,
   downloadICS,
   formatPartyDateTime,
@@ -47,7 +48,15 @@ export function CalendarTab({ party, shareUrl }: CalendarTabProps) {
               {formatPartyDateTime(party.startTime, party.endTime)}
             </p>
             {party.location ? (
-              <p className="mt-0.5 text-xs text-slate-500">{party.location}</p>
+              <a
+                href={buildGoogleMapsUrl(party.location)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline"
+              >
+                <MapPin className="h-3.5 w-3.5" />
+                {party.location}（在 Google 地圖查看）
+              </a>
             ) : null}
           </div>
         </div>
