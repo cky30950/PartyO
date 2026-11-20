@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react';
-import { CheckCircle2, HelpCircle, XCircle, UserPlus, Trash2, Edit3, Check, MapPin } from 'lucide-react';
+import { CheckCircle2, HelpCircle, XCircle, UserPlus, Trash2, Edit3, Check } from 'lucide-react';
 import type { Guest, Party, RsvpStatus } from '../types/party';
 import { generateId } from '../lib/partyStore';
-import { buildGoogleMapsUrl } from '../lib/calendar';
+import { PlaceAutocomplete } from './PlaceAutocomplete';
 
 interface RsvpTabProps {
   party: Party;
@@ -40,6 +40,7 @@ export function RsvpTab({ party, onUpdateParty }: RsvpTabProps) {
   const [editStart, setEditStart] = useState(party.startTime);
   const [editEnd, setEditEnd] = useState(party.endTime);
   const [editLocation, setEditLocation] = useState(party.location);
+  const [editAddress, setEditAddress] = useState(party.address ?? '');
   const [editDesc, setEditDesc] = useState(party.description);
 
   const goingCount = party.guests.filter((g) => g.status === 'going').length;
@@ -92,6 +93,7 @@ export function RsvpTab({ party, onUpdateParty }: RsvpTabProps) {
       startTime: editStart,
       endTime: editEnd,
       location: editLocation.trim(),
+      address: editAddress.trim(),
       description: editDesc.trim(),
     });
     setEditingInfo(false);
@@ -111,6 +113,7 @@ export function RsvpTab({ party, onUpdateParty }: RsvpTabProps) {
                 setEditStart(party.startTime);
                 setEditEnd(party.endTime);
                 setEditLocation(party.location);
+                setEditAddress(party.address ?? '');
                 setEditDesc(party.description);
                 setEditingInfo(true);
               }}
@@ -144,25 +147,12 @@ export function RsvpTab({ party, onUpdateParty }: RsvpTabProps) {
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
               />
             </div>
-            <div className="flex gap-1.5">
-              <input
-                type="text"
-                value={editLocation}
-                onChange={(e) => setEditLocation(e.target.value)}
-                className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                placeholder="輸入商舖或地方名稱"
-              />
-              <a
-                href={buildGoogleMapsUrl(editLocation)}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={editLocation.trim() ? `在 Google 地圖搜尋「${editLocation.trim()}」` : '打開 Google 地圖搜尋商舖或地方'}
-                className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-brand-300 hover:bg-rose-50 hover:text-brand-600"
-              >
-                <MapPin className="h-3.5 w-3.5 text-brand-600" />
-                Google 地圖
-              </a>
-            </div>
+            <PlaceAutocomplete
+              location={editLocation}
+              address={editAddress}
+              onChangeLocation={setEditLocation}
+              onChangeAddress={setEditAddress}
+            />
             <textarea
               rows={2}
               value={editDesc}

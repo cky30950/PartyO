@@ -47,15 +47,21 @@ export function CalendarTab({ party, shareUrl }: CalendarTabProps) {
             <p className="mt-2 text-xs font-semibold text-slate-800">
               {formatPartyDateTime(party.startTime, party.endTime)}
             </p>
-            {party.location ? (
+            {party.location || party.address ? (
               <a
-                href={buildGoogleMapsUrl(party.location)}
+                href={buildGoogleMapsUrl(
+                  [party.location?.trim(), party.address?.trim()].filter(Boolean).join(' ')
+                )}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline"
               >
-                <MapPin className="h-3.5 w-3.5" />
-                {party.location}（在 Google 地圖查看）
+                <MapPin className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  {party.location}
+                  {party.address && party.address !== party.location ? `（${party.address}）` : ''}
+                  {' · 在 Google 地圖查看'}
+                </span>
               </a>
             ) : null}
           </div>

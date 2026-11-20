@@ -122,15 +122,20 @@ export function PartyDashboard({ party, onBack, onUpdateParty }: PartyDashboardP
                 <Calendar className="h-3.5 w-3.5 text-brand-500" />
                 {formatPartyDateTime(party.startTime, party.endTime)}
               </span>
-              {party.location ? (
+              {party.location || party.address ? (
                 <a
-                  href={buildGoogleMapsUrl(party.location)}
+                  href={buildGoogleMapsUrl(
+                    [party.location?.trim(), party.address?.trim()].filter(Boolean).join(' ')
+                  )}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-slate-600 underline decoration-slate-300 underline-offset-2 transition hover:text-brand-600 hover:decoration-brand-400"
                 >
-                  <MapPin className="h-3.5 w-3.5 text-brand-500" />
-                  {party.location}
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-brand-500" />
+                  <span>
+                    {party.location}
+                    {party.address && party.address !== party.location ? ` · ${party.address}` : ''}
+                  </span>
                 </a>
               ) : null}
             </div>

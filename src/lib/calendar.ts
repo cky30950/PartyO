@@ -43,7 +43,7 @@ export function generateICS(party: Party, shareUrl = ''): string {
     `DTSTART:${dtStart}`,
     `DTEND:${dtEnd}`,
     `SUMMARY:${escapeIcsText(party.title)}`,
-    `LOCATION:${escapeIcsText(party.location)}`,
+    `LOCATION:${escapeIcsText(formatPartyLocation(party))}`,
     `DESCRIPTION:${escapeIcsText(descriptionParts.join('\n\n'))}`,
     'STATUS:CONFIRMED',
     'END:VEVENT',
@@ -82,7 +82,7 @@ export function buildGoogleCalendarUrl(party: Party, shareUrl = ''): string {
     text: party.title,
     dates: `${start}/${end}`,
     details: detailsParts.join('\n\n'),
-    location: party.location,
+    location: formatPartyLocation(party),
   });
 
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
@@ -119,6 +119,13 @@ export function formatPartyDateTime(startTime: string, endTime: string): string 
   return `${dateFmt.format(start)} ${timeFmt.format(start)} – ${dateFmt.format(end)} ${timeFmt.format(end)}`;
 }
 
+export function formatPartyLocation(party: Pick<Party, 'location' | 'address'>): string {
+  const loc = party.location?.trim() ?? '';
+  const addr = party.address?.trim() ?? '';
+  if (loc && addr && !addr.includes(loc)) return `${loc}（${addr}）`;
+  return loc || addr;
+}
+
 export function buildGoogleMapsUrl(location: string): string {
   const trimmed = location.trim();
   if (!trimmed) return 'https://www.google.com/maps/';
@@ -129,11 +136,14 @@ export function buildGoogleMapsUrl(location: string): string {
 export function buildWhatsAppInviteText(party: Party, shareUrl: string): string {
   const gcalUrl = buildGoogleCalendarUrl(party, shareUrl);
   const timeLabel = formatPartyDateTime(party.startTime, party.endTime);
+  const fullLocation = formatPartyLocation(party);
+  const mapQuery = [party.location?.trim(), party.address?.trim()].filter(Boolean).join(' ');
   const lines = [
     `🎉 *${party.title}*`,
     `📅 時間：${timeLabel}`,
     party.location ? `📍 地點：${party.location}` : '',
-    party.location ? `🗺️ Google 地圖：${buildGoogleMapsUrl(party.location)}` : '',
+    party.address ? `🏠 地址：${party.address}` : '',
+    fullLocation ? `🗺️ Google 地圖：${buildGoogleMapsUrl(mapQuery)}` : '',
     party.description ? `📝 備註：${party.description}` : '',
     '',
     `👉 撳入嚟填名 RSVP 同睇 AA 數：`,

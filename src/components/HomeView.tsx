@@ -6,11 +6,11 @@ import {
   ArrowRight,
   Trash2,
   Cloud,
-  MapPin,
 } from 'lucide-react';
 import type { Party } from '../types/party';
 import { deleteParty, generateId, saveParty } from '../lib/partyStore';
-import { buildGoogleMapsUrl, formatPartyDateTime } from '../lib/calendar';
+import { formatPartyDateTime } from '../lib/calendar';
+import { PlaceAutocomplete } from './PlaceAutocomplete';
 
 interface HomeViewProps {
   recentParties: Party[];
@@ -37,6 +37,7 @@ export function HomeView({ recentParties, onOpenParty, onRefreshList }: HomeView
   const [startTime, setStartTime] = useState(defaults.start);
   const [endTime, setEndTime] = useState(defaults.end);
   const [location, setLocation] = useState('');
+  const [address, setAddress] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -56,6 +57,7 @@ export function HomeView({ recentParties, onOpenParty, onRefreshList }: HomeView
         startTime,
         endTime,
         location: location.trim(),
+        address: address.trim(),
         hostName: hostName.trim(),
         currency: 'HK$',
         guests: [
@@ -138,7 +140,7 @@ export function HomeView({ recentParties, onOpenParty, onRefreshList }: HomeView
                 />
               </div>
 
-              <div>
+              <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-slate-700">
                   搞手名稱 <span className="text-brand-600">*</span>
                 </label>
@@ -152,28 +154,12 @@ export function HomeView({ recentParties, onOpenParty, onRefreshList }: HomeView
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700">地點</label>
-                <div className="mt-1 flex gap-1.5">
-                  <input
-                    type="text"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="輸入商舖或地方名稱"
-                    className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                  />
-                  <a
-                    href={buildGoogleMapsUrl(location)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={location.trim() ? `在 Google 地圖搜尋「${location.trim()}」` : '打開 Google 地圖搜尋商舖或地方'}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-brand-300 hover:bg-rose-50 hover:text-brand-600"
-                  >
-                    <MapPin className="h-3.5 w-3.5 text-brand-600" />
-                    地圖
-                  </a>
-                </div>
-              </div>
+              <PlaceAutocomplete
+                location={location}
+                address={address}
+                onChangeLocation={setLocation}
+                onChangeAddress={setAddress}
+              />
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700">開始時間</label>

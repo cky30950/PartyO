@@ -41,6 +41,7 @@ export interface Party {
   startTime: string; // ISO string or YYYY-MM-DDTHH:mm local datetime
   endTime: string;
   location: string;
+  address?: string;
   hostName: string;
   maxGuests?: number;
   currency: string;
