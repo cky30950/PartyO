@@ -2,10 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Loader2, MapPin, Search, X } from 'lucide-react';
 import { buildGoogleMapsUrl } from '../lib/calendar';
 
+const GOOGLE_PLACES_API_KEY =
+  import.meta.env.VITE_GOOGLE_PLACES_API_KEY || 'AIzaSyDPIU1taJQKl2RIui9kT961AneTCvX0Hts';
+
 export interface PlaceSuggestion {
-  id: string;
+  placeId: string;
   name: string;
-  address: string;
+  secondaryText: string;
 }
 
 interface PlaceAutocompleteProps {
@@ -15,42 +18,93 @@ interface PlaceAutocompleteProps {
   onChangeAddress: (value: string) => void;
 }
 
-interface NominatimItem {
-  place_id: number;
-  name?: string;
-  display_name: string;
+interface GoogleAutocompleteResponse {
+  suggestions?: Array<{
+    placePrediction?: {
+      placeId?: string;
+      text?: { text?: string };
+      structuredFormat?: {
+        mainText?: { text?: string };
+        secondaryText?: { text?: string };
+      };
+    };
+  }>;
 }
 
-async function searchPlaces(query: string, signal: AbortSignal): Promise<PlaceSuggestion[]> {
-  const trimmed = query.trim();
-  if (trimmed.length < 2) return [];
+interface GooglePlaceDetailsResponse {
+  formattedAddress?: string;
+}
 
-  const params = new URLSearchParams({
-    format: 'json',
-    addressdetails: '1',
-    limit: '6',
-    countrycodes: 'hk',
-    'accept-language': 'zh-HK,zh,en',
-    q: trimmed,
-  });
+function createSessionToken(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
 
-  const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+async function fetchGoogleAutocomplete(
+  query: string,
+  sessionToken: string,
+  signal: AbortSignal
+): Promise<PlaceSuggestion[]> {
+  const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+    },
+    body: JSON.stringify({
+      input: query.trim(),
+      includedRegionCodes: ['hk'],
+      languageCode: 'zh-HK',
+      sessionToken,
+    }),
     signal,
   });
-  if (!res.ok) return [];
-  const data = (await res.json()) as NominatimItem[];
 
-  return data.map((item) => {
-    const parts = item.display_name.split(',').map((s) => s.trim());
-    const name = item.name || parts[0] || trimmed;
-    const address =
-      parts[0] === name && parts.length > 1 ? parts.slice(1).join(', ') : item.display_name;
-    return {
-      id: String(item.place_id),
-      name,
-      address,
-    };
+  if (!res.ok) {
+    throw new Error(`Places API error (${res.status})`);
+  }
+
+  const data = (await res.json()) as GoogleAutocompleteResponse;
+  return (data.suggestions ?? [])
+    .map((s) => s.placePrediction)
+    .filter((p): p is NonNullable<typeof p> => Boolean(p?.placeId))
+    .map((p) => {
+      const name = p.structuredFormat?.mainText?.text || p.text?.text || '';
+      const secondaryText = p.structuredFormat?.secondaryText?.text || p.text?.text || '';
+      return {
+        placeId: p.placeId!,
+        name,
+        secondaryText,
+      };
+    })
+    .filter((item) => Boolean(item.name));
+}
+
+/**
+ * 僅請求 Essentials 級別的 formattedAddress 欄位，保持在每月 10,000 次免費額度內
+ */
+async function fetchPlaceFormattedAddress(
+  placeId: string,
+  sessionToken: string
+): Promise<string | null> {
+  const params = new URLSearchParams({
+    languageCode: 'zh-HK',
+    sessionToken,
   });
+  const res = await fetch(
+    `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}?${params.toString()}`,
+    {
+      headers: {
+        'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+        'X-Goog-FieldMask': 'formattedAddress',
+      },
+    }
+  );
+  if (!res.ok) return null;
+  const data = (await res.json()) as GooglePlaceDetailsResponse;
+  return data.formattedAddress?.trim() || null;
 }
 
 export function PlaceAutocomplete({
@@ -62,8 +116,12 @@ export function PlaceAutocomplete({
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [apiError, setApiError] = useState('');
   const [activeIndex, setActiveIndex] = useState(-1);
+
   const skipNextFetchRef = useRef(false);
+  const sessionTokenRef = useRef<string>(createSessionToken());
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -87,20 +145,28 @@ export function PlaceAutocomplete({
       setSuggestions([]);
       setOpen(false);
       setLoading(false);
+      setApiError('');
       return;
     }
 
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       setLoading(true);
+      setApiError('');
       try {
-        const results = await searchPlaces(q, controller.signal);
+        const results = await fetchGoogleAutocomplete(
+          q,
+          sessionTokenRef.current,
+          controller.signal
+        );
         setSuggestions(results);
         setActiveIndex(-1);
         setOpen(true);
       } catch (err) {
         if ((err as Error).name !== 'AbortError') {
           setSuggestions([]);
+          setApiError('暫時未能連線 Google 地點搜尋（可繼續手動輸入）');
+          setOpen(true);
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -115,12 +181,26 @@ export function PlaceAutocomplete({
     };
   }, [location]);
 
-  function handleSelect(place: PlaceSuggestion) {
+  async function handleSelect(place: PlaceSuggestion) {
     skipNextFetchRef.current = true;
     onChangeLocation(place.name);
-    onChangeAddress(place.address);
+    onChangeAddress(place.secondaryText);
     setOpen(false);
     setSuggestions([]);
+
+    const currentToken = sessionTokenRef.current;
+    // 完成一次選取後重設 Session Token，確保下次搜尋獨立計為新 Session
+    sessionTokenRef.current = createSessionToken();
+
+    setLoadingDetail(true);
+    try {
+      const formatted = await fetchPlaceFormattedAddress(place.placeId, currentToken);
+      if (formatted) {
+        onChangeAddress(formatted);
+      }
+    } finally {
+      setLoadingDetail(false);
+    }
   }
 
   const mapQuery = [location.trim(), address.trim()].filter(Boolean).join(' ');
@@ -130,6 +210,7 @@ export function PlaceAutocomplete({
       <div className="relative">
         <label className="block text-xs font-semibold text-slate-700">
           地點 / 商舖名稱
+          <span className="ml-1 font-normal text-slate-400">（Google 地圖即時搜尋）</span>
         </label>
         <div className="relative mt-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -150,12 +231,12 @@ export function PlaceAutocomplete({
                 setActiveIndex((prev) => (prev <= 0 ? suggestions.length - 1 : prev - 1));
               } else if (e.key === 'Enter' && activeIndex >= 0) {
                 e.preventDefault();
-                handleSelect(suggestions[activeIndex]);
+                void handleSelect(suggestions[activeIndex]);
               } else if (e.key === 'Escape') {
                 setOpen(false);
               }
             }}
-            placeholder="輸入商舖或地方名稱（例如：朗豪坊、時代廣場、K11）"
+            placeholder="輸入餐廳、Party Room 或商場名稱（例如：朗豪坊、銅鑼灣）"
             className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-9 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
           />
           {loading ? (
@@ -169,6 +250,7 @@ export function PlaceAutocomplete({
                 onChangeLocation('');
                 setSuggestions([]);
                 setOpen(false);
+                setApiError('');
               }}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
             >
@@ -179,7 +261,19 @@ export function PlaceAutocomplete({
 
         {open && (
           <div className="absolute z-30 mt-1.5 max-h-64 w-full overflow-y-auto rounded-2xl border border-slate-200 bg-white py-1.5 shadow-lg">
-            {suggestions.length === 0 && !loading ? (
+            {apiError ? (
+              <div className="px-3.5 py-2.5 text-xs text-amber-700">
+                {apiError}{' '}
+                <a
+                  href={buildGoogleMapsUrl(location)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-brand-600 underline"
+                >
+                  打開 Google 地圖
+                </a>
+              </div>
+            ) : suggestions.length === 0 && !loading ? (
               <div className="px-3.5 py-2.5 text-xs text-slate-500">
                 搵唔到相符嘅商舖或地方，你可以繼續手動輸入，或{' '}
                 <a
@@ -194,11 +288,11 @@ export function PlaceAutocomplete({
             ) : (
               suggestions.map((item, idx) => (
                 <button
-                  key={item.id}
+                  key={item.placeId}
                   type="button"
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    handleSelect(item);
+                    void handleSelect(item);
                   }}
                   className={`flex w-full items-start gap-2.5 px-3.5 py-2.5 text-left transition ${
                     idx === activeIndex ? 'bg-rose-50' : 'hover:bg-slate-50'
@@ -207,7 +301,7 @@ export function PlaceAutocomplete({
                   <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-slate-900">{item.name}</p>
-                    <p className="truncate text-xs text-slate-500">{item.address}</p>
+                    <p className="truncate text-xs text-slate-500">{item.secondaryText}</p>
                   </div>
                 </button>
               ))
@@ -219,7 +313,9 @@ export function PlaceAutocomplete({
       <div>
         <label className="block text-xs font-semibold text-slate-700">
           詳細地址
-          <span className="ml-1 font-normal text-slate-400">（選擇商舖後自動填入）</span>
+          <span className="ml-1 font-normal text-slate-400">
+            {loadingDetail ? '（正在帶入完整地址...）' : '（選擇商舖後自動填入）'}
+          </span>
         </label>
         <div className="mt-1 flex gap-1.5">
           <input
