@@ -23,6 +23,7 @@ import {
   getPendingRsvps,
   getRejectedRsvps,
   getWaitlistRsvps,
+  isHostGuest,
 } from '../lib/partyStore';
 import { PlaceAutocomplete } from './PlaceAutocomplete';
 
@@ -87,6 +88,7 @@ export function RsvpTab({
   const declinedCount = approvedGuests.filter((g) => g.status === 'declined').length;
   const maxGuests = party.maxGuests && party.maxGuests > 0 ? party.maxGuests : undefined;
   const isFull = Boolean(maxGuests && goingCount >= maxGuests);
+  const hasHostInList = approvedGuests.some((g) => isHostGuest(g));
 
   const myWaitlistPosition = useMemo(() => {
     if (!currentUser) return -1;
@@ -146,6 +148,24 @@ export function RsvpTab({
       setSelfNote('');
     }
   }, [currentUser, isAdmin, myRsvp]);
+
+  async function handleRestoreHost() {
+    if (!isAdmin || hasHostInList || !party.hostName.trim()) return;
+    const now = new Date().toISOString();
+    const hostGuest: Guest = {
+      id: generateId('g'),
+      name: `${party.hostName.trim()}（搞手）`,
+      isHost: true,
+      status: 'going',
+      approvalStatus: 'approved',
+      note: '',
+      updatedAt: now,
+    };
+    await onUpdateParty({
+      ...party,
+      guests: [hostGuest, ...party.guests],
+    });
+  }
 
   async function handleAdminAddGuest(e: FormEvent) {
     e.preventDefault();
@@ -730,10 +750,19 @@ export function RsvpTab({
       {/* 正式參加者名單（僅顯示已通過審核或主辦人加入的成員；待審核／候補本人亦可見自己） */}
       <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-sm font-bold text-slate-900">
               參加者名單（{approvedGuests.length}）
             </h2>
+            {isAdmin && !hasHostInList && party.hostName?.trim() ? (
+              <button
+                type="button"
+                onClick={handleRestoreHost}
+                className="rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold text-brand-600 ring-1 ring-brand-200 transition hover:bg-rose-100"
+              >
+                ＋ 加回搞手（{party.hostName.trim()}）
+              </button>
+            ) : null}
             {maxGuests ? (
               <span
                 className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
@@ -770,6 +799,7 @@ export function RsvpTab({
             const Icon = meta.icon;
             const isPending = guest.approvalStatus === 'pending';
             const isWaitlist = guest.approvalStatus === 'waitlist';
+            const isHost = isHostGuest(guest);
             const isOwnEntry = Boolean(currentUser && guest.id === currentUser.uid);
             const canToggleStatus = !isPending && !isWaitlist && (isAdmin || isOwnEntry);
 
@@ -826,7 +856,7 @@ export function RsvpTab({
                     </span>
                   )}
 
-                  {isAdmin ? (
+                  {isAdmin && !isHost ? (
                     <button
                       type="button"
                       aria-label="移除參加者"

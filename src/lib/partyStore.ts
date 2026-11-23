@@ -87,6 +87,13 @@ function normalizeParty(raw: Partial<Party> & { id?: string }, fallbackId = ''):
 /**
  * 取得已通過審核的正式參加者名單（主辦人手動加入 + 已批准的訪客報名），供正式名單與費用分攤使用
  */
+/**
+ * 判斷該參加者是否為活動搞手（相容舊資料名稱結尾含「（搞手）」）
+ */
+export function isHostGuest(guest: Pick<Guest, 'isHost' | 'name'>): boolean {
+  return Boolean(guest.isHost || guest.name.includes('（搞手）'));
+}
+
 export function getApprovedGuests(party: Party): Guest[] {
   const byId = new Map<string, Guest>();
   for (const g of party.guests ?? []) {
@@ -292,6 +299,10 @@ export async function adminSetRsvpApproval(
  * 主辦人移除任一參加者（自動判斷屬於 rsvps 或 guests）
  */
 export async function adminRemoveGuest(party: Party, guestId: string): Promise<Party> {
+  const targetInGuests = party.guests.find((g) => g.id === guestId);
+  if (targetInGuests && isHostGuest(targetInGuests)) {
+    return party;
+  }
   const updatedAt = new Date().toISOString();
 
   if (party.rsvps && party.rsvps[guestId]) {

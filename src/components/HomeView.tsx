@@ -163,6 +163,7 @@ export function HomeView({
           {
             id: hostId,
             name: `${hostName.trim()}（搞手）`,
+            isHost: true,
             status: 'going',
             approvalStatus: 'approved',
             note: '',

@@ -7,6 +7,7 @@ export interface Guest {
   uid?: string;
   email?: string;
   name: string;
+  isHost?: boolean;
   status: RsvpStatus;
   approvalStatus?: ApprovalStatus;
   identityOrIg?: string; // 審核用：參加者身份或 IG ID
