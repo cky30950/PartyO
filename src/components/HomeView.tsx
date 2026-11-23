@@ -150,7 +150,7 @@ export function HomeView({
           : null;
 
       const party: Party = {
-        id: generateId('party'),
+        id: generateId(),
         title: title.trim(),
         description: description.trim(),
         startTime,

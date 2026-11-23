@@ -27,7 +27,12 @@ import type {
   Party,
   RsvpStatus,
 } from '../types/party';
-import { buildGoogleMapsUrl, formatPartyDateTime, isPartyEnded } from '../lib/calendar';
+import {
+  buildGoogleMapsUrl,
+  buildShortPartyUrl,
+  formatPartyDateTime,
+  isPartyEnded,
+} from '../lib/calendar';
 import { deleteParty, getPendingRsvps } from '../lib/partyStore';
 import { RsvpTab } from './RsvpTab';
 import { CalendarTab } from './CalendarTab';
@@ -97,10 +102,7 @@ export function PartyDashboard({
   const ended = isPartyEnded(party);
   const hasAnnouncement = Boolean(party.announcement?.trim());
 
-  const shareUrl =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}${window.location.pathname}?party=${encodeURIComponent(party.id)}`
-      : '';
+  const shareUrl = buildShortPartyUrl(party.id);
 
   async function handleShare() {
     if (navigator.share) {

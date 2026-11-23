@@ -195,24 +195,34 @@ export function buildGoogleMapsUrl(location: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trimmed)}`;
 }
 
+export function buildShortPartyUrl(partyId: string, go?: 'cal' | 'map'): string {
+  if (typeof window === 'undefined') return '';
+  const base = `${window.location.origin}${window.location.pathname}`;
+  const params = new URLSearchParams({ p: partyId });
+  if (go) params.set('go', go);
+  return `${base}?${params.toString()}`;
+}
+
 export function buildWhatsAppInviteText(party: Party, shareUrl: string): string {
-  const gcalUrl = buildGoogleCalendarUrl(party, shareUrl);
+  const shortPartyUrl = buildShortPartyUrl(party.id) || shareUrl;
+  const shortCalUrl = buildShortPartyUrl(party.id, 'cal') || buildGoogleCalendarUrl(party, shortPartyUrl);
   const timeLabel = formatPartyDateTime(party.startTime, party.endTime);
   const fullLocation = formatPartyLocation(party);
   const mapQuery = [party.location?.trim(), party.address?.trim()].filter(Boolean).join(' ');
+  const shortMapUrl = buildShortPartyUrl(party.id, 'map') || buildGoogleMapsUrl(mapQuery);
   const lines = [
     `🎉 *${party.title}*`,
     `📅 時間：${timeLabel}`,
     party.location ? `📍 地點：${party.location}` : '',
     party.address ? `🏠 地址：${party.address}` : '',
-    fullLocation ? `🗺️ Google 地圖：${buildGoogleMapsUrl(mapQuery)}` : '',
+    fullLocation ? `🗺️ Google 地圖：${shortMapUrl}` : '',
     party.description ? `📝 備註：${party.description}` : '',
     '',
     `👉 點擊填寫報名及查看費用明細：`,
-    shareUrl,
+    shortPartyUrl,
     '',
     `🗓️ 一鍵加入 Google 日曆：`,
-    gcalUrl,
+    shortCalUrl,
   ].filter((line, idx, arr) => !(line === '' && arr[idx - 1] === ''));
 
   return lines.join('\n');

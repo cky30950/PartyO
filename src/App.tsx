@@ -30,13 +30,26 @@ import {
   subscribeParty,
   upsertSelfRsvp,
 } from './lib/partyStore';
+import {
+  buildGoogleCalendarUrl,
+  buildGoogleMapsUrl,
+  buildShortPartyUrl,
+} from './lib/calendar';
 import { HomeView } from './components/HomeView';
 import { PartyDashboard } from './components/PartyDashboard';
+
+type RedirectTarget = 'cal' | 'map' | null;
 
 function readPartyIdFromUrl(): string | null {
   if (typeof window === 'undefined') return null;
   const params = new URLSearchParams(window.location.search);
-  return params.get('party');
+  return params.get('p') || params.get('party');
+}
+
+function readRedirectTargetFromUrl(): RedirectTarget {
+  if (typeof window === 'undefined') return null;
+  const go = new URLSearchParams(window.location.search).get('go');
+  return go === 'cal' || go === 'map' ? go : null;
 }
 
 export function App() {
@@ -46,6 +59,9 @@ export function App() {
   const [authError, setAuthError] = useState('');
 
   const [partyId, setPartyId] = useState<string | null>(() => readPartyIdFromUrl());
+  const [redirectTarget, setRedirectTarget] = useState<RedirectTarget>(() =>
+    readRedirectTargetFromUrl()
+  );
   const [party, setParty] = useState<Party | null>(null);
   const [loading, setLoading] = useState<boolean>(Boolean(partyId));
   const [syncError, setSyncError] = useState<string>('');
@@ -91,18 +107,24 @@ export function App() {
 
   const navigateToParty = useCallback((id: string | null) => {
     setPartyId(id);
+    setRedirectTarget(null);
     setSyncError('');
     const url = new URL(window.location.href);
+    url.searchParams.delete('party');
+    url.searchParams.delete('go');
     if (id) {
-      url.searchParams.set('party', id);
+      url.searchParams.set('p', id);
     } else {
-      url.searchParams.delete('party');
+      url.searchParams.delete('p');
     }
     window.history.pushState({}, '', url.toString());
   }, []);
 
   useEffect(() => {
-    const onPopState = () => setPartyId(readPartyIdFromUrl());
+    const onPopState = () => {
+      setPartyId(readPartyIdFromUrl());
+      setRedirectTarget(readRedirectTargetFromUrl());
+    };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
@@ -155,6 +177,18 @@ export function App() {
 
     return () => unsub();
   }, [partyId, refreshList]);
+
+  // 處理站內短跳轉：?p=<id>&go=cal（Google 日曆）或 ?p=<id>&go=map（Google 地圖）
+  useEffect(() => {
+    if (!party || !redirectTarget) return;
+    const destination =
+      redirectTarget === 'cal'
+        ? buildGoogleCalendarUrl(party, buildShortPartyUrl(party.id))
+        : buildGoogleMapsUrl(
+            [party.location?.trim(), party.address?.trim()].filter(Boolean).join(' ')
+          );
+    window.location.replace(destination);
+  }, [party, redirectTarget]);
 
   async function handleSignIn() {
     setAuthBusy(true);
@@ -287,7 +321,40 @@ export function App() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-500">
-        載入派對資料中...
+        {redirectTarget === 'cal'
+          ? '正在開啟 Google 日曆...'
+          : redirectTarget === 'map'
+            ? '正在開啟 Google 地圖...'
+            : '載入派對資料中...'}
+      </div>
+    );
+  }
+
+  if (party && redirectTarget) {
+    const destination =
+      redirectTarget === 'cal'
+        ? buildGoogleCalendarUrl(party, buildShortPartyUrl(party.id))
+        : buildGoogleMapsUrl(
+            [party.location?.trim(), party.address?.trim()].filter(Boolean).join(' ')
+          );
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-slate-50 px-4 text-center">
+        <p className="text-sm font-bold text-slate-800">
+          {redirectTarget === 'cal' ? '正在跳轉至 Google 日曆...' : '正在跳轉至 Google 地圖...'}
+        </p>
+        <a
+          href={destination}
+          className="rounded-xl bg-brand-600 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-700"
+        >
+          立即開啟
+        </a>
+        <button
+          type="button"
+          onClick={() => navigateToParty(party.id)}
+          className="text-xs font-medium text-slate-500 underline underline-offset-2 hover:text-slate-700"
+        >
+          查看活動詳情
+        </button>
       </div>
     );
   }
