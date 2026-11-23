@@ -103,7 +103,7 @@ export function HomeView({
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800">
-              <Cloud className="h-3.5 w-3.5" /> 雲端即時同步
+              <Cloud className="h-3.5 w-3.5" /> 線上即時同步中
             </span>
             {onSignOut ? (
               <button

@@ -107,7 +107,7 @@ export function PartyDashboard({
 
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700">
-                <Cloud className="h-3 w-3" /> 雲端同步中
+                <Cloud className="h-3 w-3" /> 線上即時同步中
               </span>
 
               {isAdmin ? (

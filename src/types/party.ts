@@ -9,6 +9,7 @@ export interface Guest {
   name: string;
   status: RsvpStatus;
   approvalStatus?: ApprovalStatus;
+  identityOrIg?: string; // 審核用：參加者身份或 IG ID
   note?: string;
   updatedAt: string;
 }

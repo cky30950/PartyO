@@ -77,6 +77,12 @@ export function RsvpTab({
   const pendingRsvps = useMemo(() => getPendingRsvps(party), [party]);
   const rejectedRsvps = useMemo(() => getRejectedRsvps(party), [party]);
   const myRsvp = currentUser ? party.rsvps?.[currentUser.uid] : undefined;
+  const displayedGuests = useMemo(() => {
+    if (!isAdmin && myRsvp && myRsvp.approvalStatus === 'pending') {
+      return [...approvedGuests, myRsvp];
+    }
+    return approvedGuests;
+  }, [approvedGuests, isAdmin, myRsvp]);
 
   // 主辦人新增名單表單狀態
   const [adminAddName, setAdminAddName] = useState('');
@@ -86,6 +92,7 @@ export function RsvpTab({
   // 一般登入訪客個人報名表單狀態
   const [selfName, setSelfName] = useState('');
   const [selfStatus, setSelfStatus] = useState<RsvpStatus>('going');
+  const [selfIdentityOrIg, setSelfIdentityOrIg] = useState('');
   const [selfNote, setSelfNote] = useState('');
   const [selfSaved, setSelfSaved] = useState(false);
   const [selfError, setSelfError] = useState('');
@@ -104,6 +111,7 @@ export function RsvpTab({
     if (myRsvp) {
       setSelfName(myRsvp.name);
       setSelfStatus(myRsvp.status);
+      setSelfIdentityOrIg(myRsvp.identityOrIg ?? '');
       setSelfNote(myRsvp.note ?? '');
     } else {
       const defaultName =
@@ -112,6 +120,7 @@ export function RsvpTab({
         '';
       setSelfName(defaultName);
       setSelfStatus('going');
+      setSelfIdentityOrIg('');
       setSelfNote('');
     }
   }, [currentUser, isAdmin, myRsvp]);
@@ -159,6 +168,7 @@ export function RsvpTab({
         name: trimmed,
         status: selfStatus,
         approvalStatus: myRsvp?.approvalStatus === 'approved' ? 'approved' : 'pending',
+        identityOrIg: selfIdentityOrIg.trim(),
         note: selfNote.trim(),
         updatedAt: new Date().toISOString(),
       });
@@ -235,6 +245,11 @@ export function RsvpTab({
                     </div>
                     {guest.email ? (
                       <p className="truncate text-[11px] text-slate-400">{guest.email}</p>
+                    ) : null}
+                    {guest.identityOrIg ? (
+                      <p className="mt-1 text-xs font-medium text-amber-900">
+                        身份 / IG：{guest.identityOrIg}
+                      </p>
                     ) : null}
                     {guest.note ? (
                       <p className="mt-0.5 text-xs text-slate-600">備註：{guest.note}</p>
@@ -496,10 +511,18 @@ export function RsvpTab({
               />
               <input
                 type="text"
+                required
+                value={selfIdentityOrIg}
+                onChange={(e) => setSelfIdentityOrIg(e.target.value)}
+                placeholder="審核備註：你的身份或 IG ID（例如：@username、同事）"
+                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              />
+              <input
+                type="text"
                 value={selfNote}
                 onChange={(e) => setSelfNote(e.target.value)}
-                placeholder="備註（例如：唔飲酒、8點半先到）"
-                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                placeholder="其他備註（選填，例如：唔飲酒、8點半先到）"
+                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 sm:col-span-2"
               />
             </div>
 
@@ -568,11 +591,12 @@ export function RsvpTab({
         </div>
 
         <div className="mt-4 divide-y divide-slate-100">
-          {approvedGuests.map((guest) => {
+          {displayedGuests.map((guest) => {
             const meta = STATUS_META[guest.status];
             const Icon = meta.icon;
+            const isPending = guest.approvalStatus === 'pending';
             const isOwnEntry = Boolean(currentUser && guest.id === currentUser.uid);
-            const canToggleStatus = isAdmin || isOwnEntry;
+            const canToggleStatus = !isPending && (isAdmin || isOwnEntry);
 
             return (
               <div key={guest.id} className="flex items-center justify-between gap-3 py-3">
@@ -590,7 +614,12 @@ export function RsvpTab({
                   ) : null}
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
-                  {canToggleStatus ? (
+                  {isPending ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">
+                      <Clock className="h-3.5 w-3.5" />
+                      待審核
+                    </span>
+                  ) : canToggleStatus ? (
                     <button
                       type="button"
                       title={isAdmin ? '切換出席狀態' : '切換自己的出席狀態'}
@@ -645,6 +674,11 @@ export function RsvpTab({
               <div key={guest.id} className="flex items-center justify-between gap-3 py-2.5">
                 <div className="min-w-0">
                   <p className="truncate text-xs font-semibold text-slate-700">{guest.name}</p>
+                  {guest.identityOrIg ? (
+                    <p className="truncate text-[11px] font-medium text-slate-500">
+                      身份 / IG：{guest.identityOrIg}
+                    </p>
+                  ) : null}
                   {guest.email ? (
                     <p className="truncate text-[11px] text-slate-400">{guest.email}</p>
                   ) : null}
