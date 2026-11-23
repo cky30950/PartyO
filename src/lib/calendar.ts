@@ -166,7 +166,7 @@ export function formatPartyDateTime(startTime: string, endTime?: string): string
   });
 
   if (!hasEndTime(endTime)) {
-    return `${dateFmt.format(start)} ${timeFmt.format(start)} 起`;
+    return `${dateFmt.format(start)} ${timeFmt.format(start)}`;
   }
 
   const end = new Date(endTime!);
