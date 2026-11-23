@@ -218,7 +218,7 @@ export function buildWhatsAppInviteText(party: Party, shareUrl: string): string 
     fullLocation ? `🗺️ Google 地圖：${shortMapUrl}` : '',
     party.description ? `📝 備註：${party.description}` : '',
     '',
-    `👉 點擊填寫報名及查看費用明細：`,
+    `👉 點擊進入活動及查看明細：`,
     shortPartyUrl,
     '',
     `🗓️ 一鍵加入 Google 日曆：`,
