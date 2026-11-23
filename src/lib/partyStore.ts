@@ -1,14 +1,6 @@
-import {
-  deleteDoc,
-  deleteField,
-  doc,
-  getDoc,
-  onSnapshot,
-  setDoc,
-  updateDoc,
-} from 'firebase/firestore';
-import { db } from './firebase';
-import type { Guest, Party, RsvpStatus } from '../types/party';
+import { get, onValue, ref, remove, set, update } from 'firebase/database';
+import { rtdb } from './firebase';
+import type { Expense, Guest, Party, RsvpStatus } from '../types/party';
 
 const RECENT_CACHE_KEY = 'partyo_recent_parties_v1';
 
@@ -19,7 +11,7 @@ export function generateId(prefix = ''): string {
 }
 
 /**
- * 遞迴移除物件中的 undefined 欄位，避免 Firebase Firestore 拒絕寫入
+ * 遞迴移除物件中的 undefined 欄位，避免 Firebase Realtime Database 拒絕寫入
  */
 function stripUndefined<T>(value: T): T {
   if (Array.isArray(value)) {
@@ -35,6 +27,50 @@ function stripUndefined<T>(value: T): T {
     return out as T;
   }
   return value;
+}
+
+function toArray<T>(val: unknown): T[] {
+  if (Array.isArray(val)) return val.filter((item): item is T => item != null);
+  if (val && typeof val === 'object') {
+    return Object.values(val as Record<string, T>).filter((item): item is T => item != null);
+  }
+  return [];
+}
+
+/**
+ * Realtime Database 會略過空陣列與空物件，讀取時統一補回預設欄位
+ */
+function normalizeParty(raw: Partial<Party> & { id?: string }, fallbackId = ''): Party {
+  const expenses = toArray<Expense>(raw.expenses).map((exp) => ({
+    ...exp,
+    participantIds: toArray<string>(exp.participantIds),
+  }));
+
+  return {
+    id: raw.id || fallbackId,
+    title: raw.title ?? '',
+    description: raw.description ?? '',
+    startTime: raw.startTime ?? '',
+    endTime: raw.endTime ?? '',
+    location: raw.location ?? '',
+    address: raw.address ?? '',
+    hostName: raw.hostName ?? '',
+    maxGuests: raw.maxGuests,
+    currency: raw.currency ?? 'HK$',
+    paymeLink: raw.paymeLink ?? '',
+    paymeQrImage: raw.paymeQrImage ?? '',
+    fpsInfo: raw.fpsInfo ?? '',
+    fpsQrImage: raw.fpsQrImage ?? '',
+    guests: toArray<Guest>(raw.guests),
+    rsvps: raw.rsvps && typeof raw.rsvps === 'object' ? raw.rsvps : {},
+    expenses,
+    settlementPayments:
+      raw.settlementPayments && typeof raw.settlementPayments === 'object'
+        ? raw.settlementPayments
+        : {},
+    createdAt: raw.createdAt ?? '',
+    updatedAt: raw.updatedAt ?? '',
+  };
 }
 
 /**
@@ -58,7 +94,12 @@ function readRecentMap(): Record<string, Party> {
   try {
     const raw = localStorage.getItem(RECENT_CACHE_KEY);
     if (!raw) return {};
-    return JSON.parse(raw) as Record<string, Party>;
+    const parsed = JSON.parse(raw) as Record<string, Partial<Party>>;
+    const normalized: Record<string, Party> = {};
+    for (const [id, item] of Object.entries(parsed)) {
+      if (item) normalized[id] = normalizeParty(item, id);
+    }
+    return normalized;
   } catch {
     return {};
   }
@@ -83,8 +124,7 @@ export async function saveParty(party: Party): Promise<void> {
     updatedAt: new Date().toISOString(),
   });
 
-  const ref = doc(db, 'parties', updated.id);
-  await setDoc(ref, updated, { merge: true });
+  await set(ref(rtdb, `parties/${updated.id}`), updated);
 
   const map = readRecentMap();
   map[updated.id] = updated;
@@ -105,9 +145,9 @@ export async function upsertSelfRsvp(partyId: string, guest: Guest): Promise<voi
     uid: guest.uid,
     updatedAt,
   });
-  const ref = doc(db, 'parties', partyId);
-  await updateDoc(ref, {
-    [`rsvps.${guest.uid}`]: entry,
+
+  await update(ref(rtdb, `parties/${partyId}`), {
+    [`rsvps/${guest.uid}`]: entry,
     updatedAt,
   });
 
@@ -134,16 +174,15 @@ export async function adminUpdateGuestStatus(
   nextStatus: RsvpStatus
 ): Promise<Party> {
   const updatedAt = new Date().toISOString();
-  const ref = doc(db, 'parties', party.id);
 
   if (party.rsvps && party.rsvps[guestId]) {
-    const nextEntry: Guest = {
+    const nextEntry: Guest = stripUndefined({
       ...party.rsvps[guestId],
       status: nextStatus,
       updatedAt,
-    };
-    await updateDoc(ref, {
-      [`rsvps.${guestId}`]: nextEntry,
+    });
+    await update(ref(rtdb, `parties/${party.id}`), {
+      [`rsvps/${guestId}`]: nextEntry,
       updatedAt,
     });
     const nextParty: Party = {
@@ -157,10 +196,15 @@ export async function adminUpdateGuestStatus(
     return nextParty;
   }
 
-  const nextGuests = party.guests.map((g) =>
-    g.id === guestId ? { ...g, status: nextStatus, updatedAt } : g
+  const nextGuests = stripUndefined(
+    party.guests.map((g) =>
+      g.id === guestId ? { ...g, status: nextStatus, updatedAt } : g
+    )
   );
-  await updateDoc(ref, { guests: nextGuests, updatedAt });
+  await update(ref(rtdb, `parties/${party.id}`), {
+    guests: nextGuests,
+    updatedAt,
+  });
   const nextParty: Party = { ...party, guests: nextGuests, updatedAt };
   const map = readRecentMap();
   map[party.id] = nextParty;
@@ -173,11 +217,10 @@ export async function adminUpdateGuestStatus(
  */
 export async function adminRemoveGuest(party: Party, guestId: string): Promise<Party> {
   const updatedAt = new Date().toISOString();
-  const ref = doc(db, 'parties', party.id);
 
   if (party.rsvps && party.rsvps[guestId]) {
-    await updateDoc(ref, {
-      [`rsvps.${guestId}`]: deleteField(),
+    await update(ref(rtdb, `parties/${party.id}`), {
+      [`rsvps/${guestId}`]: null,
       updatedAt,
     });
     const nextRsvps = { ...party.rsvps };
@@ -189,8 +232,11 @@ export async function adminRemoveGuest(party: Party, guestId: string): Promise<P
     return nextParty;
   }
 
-  const nextGuests = party.guests.filter((g) => g.id !== guestId);
-  await updateDoc(ref, { guests: nextGuests, updatedAt });
+  const nextGuests = stripUndefined(party.guests.filter((g) => g.id !== guestId));
+  await update(ref(rtdb, `parties/${party.id}`), {
+    guests: nextGuests,
+    updatedAt,
+  });
   const nextParty: Party = { ...party, guests: nextGuests, updatedAt };
   const map = readRecentMap();
   map[party.id] = nextParty;
@@ -199,28 +245,30 @@ export async function adminRemoveGuest(party: Party, guestId: string): Promise<P
 }
 
 export async function fetchPartyOnce(partyId: string): Promise<Party | null> {
-  const ref = doc(db, 'parties', partyId);
-  const snap = await getDoc(ref);
+  const snap = await get(ref(rtdb, `parties/${partyId}`));
   if (!snap.exists()) return null;
 
-  const data = snap.data() as Party;
+  const data = normalizeParty(snap.val() as Partial<Party>, partyId);
   const map = readRecentMap();
   map[data.id] = data;
   writeRecentMap(map);
   return data;
 }
 
+/**
+ * 即時監聽單一派對活動（Realtime Database WebSocket 推送）
+ */
 export function subscribeParty(
   partyId: string,
   onData: (party: Party | null) => void,
   onError?: (err: Error) => void
 ): () => void {
-  const ref = doc(db, 'parties', partyId);
-  return onSnapshot(
-    ref,
+  const partyRef = ref(rtdb, `parties/${partyId}`);
+  return onValue(
+    partyRef,
     (snap) => {
       if (snap.exists()) {
-        const data = snap.data() as Party;
+        const data = normalizeParty(snap.val() as Partial<Party>, partyId);
         const map = readRecentMap();
         map[data.id] = data;
         writeRecentMap(map);
@@ -235,6 +283,39 @@ export function subscribeParty(
   );
 }
 
+/**
+ * 主辦人首頁即時監聽雲端所有派對列表（跨裝置即時同步）
+ */
+export function subscribeAllParties(
+  onData: (parties: Party[]) => void,
+  onError?: (err: Error) => void
+): () => void {
+  const partiesRef = ref(rtdb, 'parties');
+  return onValue(
+    partiesRef,
+    (snap) => {
+      if (!snap.exists()) {
+        writeRecentMap({});
+        onData([]);
+        return;
+      }
+      const rawMap = snap.val() as Record<string, Partial<Party>>;
+      const normalizedMap: Record<string, Party> = {};
+      for (const [id, item] of Object.entries(rawMap)) {
+        if (item) normalizedMap[id] = normalizeParty(item, id);
+      }
+      writeRecentMap(normalizedMap);
+      const sorted = Object.values(normalizedMap).sort((a, b) =>
+        b.updatedAt.localeCompare(a.updatedAt)
+      );
+      onData(sorted);
+    },
+    (err) => {
+      onError?.(err);
+    }
+  );
+}
+
 export function removeRecentParty(partyId: string): void {
   const map = readRecentMap();
   delete map[partyId];
@@ -242,7 +323,6 @@ export function removeRecentParty(partyId: string): void {
 }
 
 export async function deleteParty(partyId: string): Promise<void> {
-  const ref = doc(db, 'parties', partyId);
-  await deleteDoc(ref);
+  await remove(ref(rtdb, `parties/${partyId}`));
   removeRecentParty(partyId);
 }

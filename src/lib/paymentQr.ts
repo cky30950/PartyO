@@ -73,7 +73,7 @@ export function buildQrImageUrl(data: string, size = 320): string {
 }
 
 /**
- * 壓縮主辦人上傳的二維碼圖片至適合存入 Firestore 的尺寸（最大 480px）
+ * 壓縮主辦人上傳的二維碼圖片至適合存入 Realtime Database 的尺寸（最大 480px）
  */
 export function compressQrImageFile(file: File): Promise<string> {
   return new Promise((resolve, reject) => {

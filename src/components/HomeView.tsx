@@ -83,8 +83,8 @@ export function HomeView({
       onRefreshList();
       onOpenParty(party.id);
     } catch (err) {
-      const detail = err instanceof Error ? err.message : '無法連線至 Firebase Firestore';
-      setErrorMsg(`建立失敗：${detail}（請確認 Firebase Console 已啟用 Firestore 並發佈規則）`);
+      const detail = err instanceof Error ? err.message : '無法連線至 Firebase Realtime Database';
+      setErrorMsg(`建立失敗：${detail}（請確認 Firebase Console 已啟用 Realtime Database 並發佈規則）`);
     } finally {
       setSubmitting(false);
     }

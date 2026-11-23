@@ -6,7 +6,7 @@ import {
   signOut,
   type User,
 } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getDatabase } from 'firebase/database';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyBtUcrBYiE4B1O4xkvIqwxM52Hrh-i6pL8',
@@ -25,7 +25,7 @@ export const ADMIN_EMAIL = (
 ).trim().toLowerCase();
 
 export const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+export const rtdb = getDatabase(app);
 export const auth = getAuth(app);
 
 const googleProvider = new GoogleAuthProvider();

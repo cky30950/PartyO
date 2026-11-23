@@ -13,6 +13,7 @@ import {
   adminUpdateGuestStatus,
   listRecentParties,
   saveParty,
+  subscribeAllParties,
   subscribeParty,
   upsertSelfRsvp,
 } from './lib/partyStore';
@@ -68,6 +69,18 @@ export function App() {
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
+
+  useEffect(() => {
+    if (partyId || !isAdmin) return;
+    const unsub = subscribeAllParties(
+      (list) => setRecentParties(list),
+      () => {
+        // 若 Realtime Database 規則尚未發佈，先回退顯示本機快取列表
+        refreshList();
+      }
+    );
+    return () => unsub();
+  }, [partyId, isAdmin, refreshList]);
 
   useEffect(() => {
     if (!partyId) {
@@ -270,7 +283,7 @@ export function App() {
         <p className="text-base font-bold text-slate-800">搵唔到呢個派對活動</p>
         <p className="max-w-sm text-xs text-slate-500">
           {syncError
-            ? `連線錯誤：${syncError}（請檢查 Firestore 資料庫及安全規則設定）`
+            ? `連線錯誤：${syncError}（請檢查 Firebase Realtime Database 及安全規則設定）`
             : '連結可能已失效，或該派對尚未建立，請向主辦人確認連結。'}
         </p>
         {isAdmin ? (

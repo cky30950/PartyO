@@ -1,0 +1,21 @@
+{
+  "rules": {
+    "parties": {
+      ".read": "auth != null && auth.token.email == 'cky30950@gmail.com' && auth.token.email_verified == true",
+      ".write": "auth != null && auth.token.email == 'cky30950@gmail.com' && auth.token.email_verified == true",
+      "$partyId": {
+        ".read": "$partyId.length >= 8",
+        "rsvps": {
+          "$uid": {
+            ".write": "auth != null && auth.uid == $uid && $partyId.length >= 8",
+            ".validate": "newData.hasChildren(['id', 'uid', 'name', 'status', 'updatedAt']) && newData.child('id').val() == $uid && newData.child('uid').val() == $uid && (newData.child('status').val() == 'going' || newData.child('status').val() == 'maybe' || newData.child('status').val() == 'declined')"
+          }
+        },
+        "updatedAt": {
+          ".write": "auth != null && $partyId.length >= 8",
+          ".validate": "newData.isString()"
+        }
+      }
+    }
+  }
+}
