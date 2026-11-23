@@ -799,7 +799,6 @@ export function RsvpTab({
             const Icon = meta.icon;
             const isPending = guest.approvalStatus === 'pending';
             const isWaitlist = guest.approvalStatus === 'waitlist';
-            const isHost = isHostGuest(guest);
             const isOwnEntry = Boolean(currentUser && guest.id === currentUser.uid);
             const canToggleStatus = !isPending && !isWaitlist && (isAdmin || isOwnEntry);
 
@@ -856,7 +855,7 @@ export function RsvpTab({
                     </span>
                   )}
 
-                  {isAdmin && !isHost ? (
+                  {isAdmin ? (
                     <button
                       type="button"
                       aria-label="移除參加者"

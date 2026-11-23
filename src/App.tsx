@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import type {
+  AppTheme,
   ApprovalStatus,
   Guest,
   HostPaymentProfile,
@@ -18,10 +19,13 @@ import {
   adminSetRsvpApproval,
   adminUpdateGuestStatus,
   listRecentParties,
+  readCachedAppTheme,
   readCachedHostPaymentProfile,
+  saveAppTheme,
   saveHostPaymentProfile,
   saveParty,
   subscribeAllParties,
+  subscribeAppTheme,
   subscribeHostPaymentProfile,
   subscribeParty,
   upsertSelfRsvp,
@@ -49,8 +53,29 @@ export function App() {
   const [hostPaymentProfile, setHostPaymentProfile] = useState<HostPaymentProfile | null>(() =>
     readCachedHostPaymentProfile()
   );
+  const [appTheme, setAppTheme] = useState<AppTheme>(() => readCachedAppTheme());
 
   const isAdmin = isAdminUser(user);
+
+  // 全站同步監聽主辦人選擇的主題風格
+  useEffect(() => {
+    const unsub = subscribeAppTheme((nextTheme) => setAppTheme(nextTheme));
+    return () => unsub();
+  }, []);
+
+  // 套用 data-theme 與瀏覽器狀態列主題色
+  useEffect(() => {
+    document.documentElement.dataset.theme = appTheme;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) {
+      const colors: Record<AppTheme, string> = {
+        tavern: '#5C3822',
+        cozy: '#3B7453',
+        jrpg: '#0D1847',
+      };
+      meta.setAttribute('content', colors[appTheme]);
+    }
+  }, [appTheme]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (nextUser) => {
@@ -226,6 +251,12 @@ export function App() {
     setHostPaymentProfile(saved);
   }
 
+  async function handleChangeTheme(nextTheme: AppTheme) {
+    if (!isAdmin) return;
+    setAppTheme(nextTheme);
+    await saveAppTheme(nextTheme);
+  }
+
   if (!partyId) {
     if (!authReady) {
       return (
@@ -241,6 +272,8 @@ export function App() {
         isAdmin={isAdmin}
         currentUser={user}
         hostPaymentProfile={hostPaymentProfile}
+        appTheme={appTheme}
+        onChangeTheme={handleChangeTheme}
         authBusy={authBusy}
         authError={authError}
         onSignIn={handleSignIn}
@@ -285,6 +318,8 @@ export function App() {
       isAdmin={isAdmin}
       currentUser={user}
       hostPaymentProfile={hostPaymentProfile}
+      appTheme={appTheme}
+      onChangeTheme={handleChangeTheme}
       authBusy={authBusy}
       authError={authError}
       onBack={() => navigateToParty(null)}

@@ -3,47 +3,41 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --rpg-bg: #f3e7cc;
-    --rpg-paper: #fff9eb;
-    --rpg-paper-deep: #f7ebd1;
-    --rpg-wood: #5c3822;
-    --rpg-wood-dark: #3b2314;
-    --rpg-border: #4a2e1b;
-    --rpg-gold: #f7c948;
-    --rpg-ink: #2f1b0e;
-    --rpg-ink-muted: #6b4c35;
-  }
-
   html {
     font-family: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "PingFang HK", "Segoe UI", sans-serif;
     -webkit-tap-highlight-color: transparent;
-    background-color: var(--rpg-bg);
-    color: var(--rpg-ink);
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
-  /* 16-bit 像素點陣標題 */
   h1, h2, h3 {
     font-family: "Silkscreen", "DotGothic16", "Noto Sans TC", sans-serif;
     letter-spacing: 0.02em;
   }
-
-  /* 羊皮紙與像素網點背景 */
-  .rpg-tavern-bg {
-    background-color: var(--rpg-bg);
-    background-image:
-      radial-gradient(rgba(92, 56, 34, 0.09) 1px, transparent 1px),
-      radial-gradient(rgba(92, 56, 34, 0.05) 1px, var(--rpg-bg) 1px);
-    background-size: 16px 16px;
-    background-position: 0 0, 8px 8px;
-  }
 }
 
-/* ===== 復古 16-bit 冒險者酒館全域視覺改造 ===== */
+/* 共用像素圖示銳利渲染 */
+img[src$="icon.svg"] {
+  image-rendering: pixelated;
+  border-radius: 4px !important;
+  border: 2px solid #2f1b0e;
+  box-shadow: 2px 2px 0 #2f1b0e;
+}
 
-/* 1. 統一將冷灰色底與漸層轉為溫暖羊皮紙與酒館背景 */
-.bg-slate-50,
-.bg-gradient-to-b {
+/* ==========================================================================
+   主題 1：復古 16-bit 冒險者酒館風 (tavern - 預設)
+   ========================================================================== */
+:root,
+:root[data-theme="tavern"] {
+  background-color: #f3e7cc;
+  color: #2f1b0e;
+}
+
+:root[data-theme="tavern"] .rpg-tavern-bg,
+:root:not([data-theme]) .rpg-tavern-bg,
+:root[data-theme="tavern"] .bg-slate-50,
+:root:not([data-theme]) .bg-slate-50,
+:root[data-theme="tavern"] .bg-gradient-to-b,
+:root:not([data-theme]) .bg-gradient-to-b {
   background-color: #f3e7cc !important;
   background-image:
     radial-gradient(rgba(92, 56, 34, 0.08) 1px, transparent 1px),
@@ -52,39 +46,50 @@
   background-position: 0 0, 8px 8px !important;
 }
 
-.bg-slate-100 {
+:root[data-theme="tavern"] .bg-slate-100,
+:root:not([data-theme]) .bg-slate-100 {
   background-color: #ead9b7 !important;
 }
 
-.bg-slate-50\/80 {
+:root[data-theme="tavern"] .bg-slate-50\/80,
+:root:not([data-theme]) .bg-slate-50\/80 {
   background-color: #fbf2dd !important;
 }
 
-.bg-white,
-.bg-white\/90,
-.bg-white\/80 {
+:root[data-theme="tavern"] .bg-white,
+:root:not([data-theme]) .bg-white,
+:root[data-theme="tavern"] .bg-white\/90,
+:root:not([data-theme]) .bg-white\/90,
+:root[data-theme="tavern"] .bg-white\/80,
+:root:not([data-theme]) .bg-white\/80 {
   background-color: #fff9eb !important;
 }
 
-/* 2. 深褐色墨水字體覆蓋原本冷灰字色 */
-.text-slate-900,
-.text-slate-800 {
+:root[data-theme="tavern"] .text-slate-900,
+:root:not([data-theme]) .text-slate-900,
+:root[data-theme="tavern"] .text-slate-800,
+:root:not([data-theme]) .text-slate-800 {
   color: #2f1b0e !important;
 }
 
-.text-slate-700,
-.text-slate-600 {
+:root[data-theme="tavern"] .text-slate-700,
+:root:not([data-theme]) .text-slate-700,
+:root[data-theme="tavern"] .text-slate-600,
+:root:not([data-theme]) .text-slate-600 {
   color: #593b25 !important;
 }
 
-.text-slate-500,
-.text-slate-400 {
+:root[data-theme="tavern"] .text-slate-500,
+:root:not([data-theme]) .text-slate-500,
+:root[data-theme="tavern"] .text-slate-400,
+:root:not([data-theme]) .text-slate-400 {
   color: #826146 !important;
 }
 
-/* 3. 16-bit 羊皮紙捲軸卡片（木色粗像素框 + 硬邊陰影 + 內高光） */
-section.rounded-3xl,
-div.rounded-3xl {
+:root[data-theme="tavern"] section.rounded-3xl,
+:root:not([data-theme]) section.rounded-3xl,
+:root[data-theme="tavern"] div.rounded-3xl,
+:root:not([data-theme]) div.rounded-3xl {
   border-radius: 6px !important;
   border: 2px solid #4a2e1b !important;
   box-shadow:
@@ -93,20 +98,417 @@ div.rounded-3xl {
     4px 4px 0 #3b2314 !important;
 }
 
-div.rounded-2xl.shadow-sm,
-a.rounded-2xl,
-button.rounded-2xl {
+:root[data-theme="tavern"] div.rounded-2xl.shadow-sm,
+:root:not([data-theme]) div.rounded-2xl.shadow-sm {
   border-radius: 4px !important;
-}
-
-div.rounded-2xl.shadow-sm {
   border: 2px solid #5c3822 !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 253, 245, 0.85),
     3px 3px 0 #3b2314 !important;
 }
 
-/* 4. 實體 16-bit 按鈕按壓回饋 */
+:root[data-theme="tavern"] .rpg-wood-bar,
+:root:not([data-theme]) .rpg-wood-bar {
+  background: linear-gradient(180deg, #6e4226 0%, #56321c 100%) !important;
+  border: 2px solid #2f1b0e !important;
+  box-shadow:
+    inset 0 2px 0 rgba(247, 201, 72, 0.25),
+    4px 4px 0 rgba(47, 27, 14, 0.4) !important;
+}
+
+:root[data-theme="tavern"] header.sticky,
+:root:not([data-theme]) header.sticky {
+  background-color: #fff9eb !important;
+  border-bottom: 3px solid #4a2e1b !important;
+}
+
+:root[data-theme="tavern"] nav.rounded-2xl,
+:root:not([data-theme]) nav.rounded-2xl {
+  border-radius: 4px !important;
+  border: 2px solid #4a2e1b !important;
+  background-color: #e4cfa7 !important;
+}
+
+:root[data-theme="tavern"] nav.rounded-2xl button.shadow-sm,
+:root:not([data-theme]) nav.rounded-2xl button.shadow-sm {
+  border: 2px solid #4a2e1b !important;
+  background-color: #fff9eb !important;
+  box-shadow: 2px 2px 0 #3b2314 !important;
+}
+
+:root[data-theme="tavern"] input[type="text"],
+:root:not([data-theme]) input[type="text"],
+:root[data-theme="tavern"] input[type="number"],
+:root:not([data-theme]) input[type="number"],
+:root[data-theme="tavern"] input[type="url"],
+:root:not([data-theme]) input[type="url"],
+:root[data-theme="tavern"] input[type="datetime-local"],
+:root:not([data-theme]) input[type="datetime-local"],
+:root[data-theme="tavern"] textarea,
+:root:not([data-theme]) textarea,
+:root[data-theme="tavern"] select,
+:root:not([data-theme]) select {
+  border-radius: 4px !important;
+  border: 2px solid #8a6240 !important;
+  background-color: #fffdf7 !important;
+  color: #2f1b0e !important;
+}
+
+:root[data-theme="tavern"] .rpg-theme-switcher,
+:root:not([data-theme]) .rpg-theme-switcher {
+  background-color: #f7ebd1;
+  border: 2px solid #5c3822;
+  color: #3b2314;
+  box-shadow: 2px 2px 0 #3b2314;
+}
+
+:root[data-theme="tavern"] .rpg-theme-pill-active,
+:root:not([data-theme]) .rpg-theme-pill-active {
+  background-color: #5c3822;
+  color: #f7c948;
+  border: 2px solid #2f1b0e;
+}
+
+:root[data-theme="tavern"] .rpg-theme-pill-idle,
+:root:not([data-theme]) .rpg-theme-pill-idle {
+  background-color: #fff9eb;
+  color: #593b25;
+  border: 2px solid #b89464;
+}
+
+/* ==========================================================================
+   主題 2：清新 Indie 像素手繪風 · 現代 Cozy 2D RPG (cozy)
+   ========================================================================== */
+:root[data-theme="cozy"] {
+  background-color: #eef6ee;
+  color: #1f2e2b;
+}
+
+:root[data-theme="cozy"] .rpg-tavern-bg,
+:root[data-theme="cozy"] .bg-slate-50,
+:root[data-theme="cozy"] .bg-gradient-to-b {
+  background-color: #eef6ee !important;
+  background-image:
+    radial-gradient(rgba(62, 122, 87, 0.12) 1.5px, transparent 1.5px) !important;
+  background-size: 18px 18px !important;
+}
+
+:root[data-theme="cozy"] .bg-slate-100 {
+  background-color: #dfece0 !important;
+}
+
+:root[data-theme="cozy"] .bg-slate-50\/80 {
+  background-color: #f6fbf5 !important;
+}
+
+:root[data-theme="cozy"] .bg-white,
+:root[data-theme="cozy"] .bg-white\/90,
+:root[data-theme="cozy"] .bg-white\/80 {
+  background-color: #fffdf9 !important;
+}
+
+:root[data-theme="cozy"] .text-slate-900,
+:root[data-theme="cozy"] .text-slate-800 {
+  color: #1f2e2b !important;
+}
+
+:root[data-theme="cozy"] .text-slate-700,
+:root[data-theme="cozy"] .text-slate-600 {
+  color: #3b524d !important;
+}
+
+:root[data-theme="cozy"] .text-slate-500,
+:root[data-theme="cozy"] .text-slate-400 {
+  color: #627d76 !important;
+}
+
+:root[data-theme="cozy"] section.rounded-3xl,
+:root[data-theme="cozy"] div.rounded-3xl {
+  border-radius: 12px !important;
+  border: 2px solid #2b3f3b !important;
+  box-shadow: 4px 4px 0 #b7d3be !important;
+}
+
+:root[data-theme="cozy"] div.rounded-2xl.shadow-sm {
+  border-radius: 10px !important;
+  border: 2px solid #2b3f3b !important;
+  box-shadow: 3px 3px 0 #c5decb !important;
+}
+
+:root[data-theme="cozy"] .rpg-wood-bar {
+  background: linear-gradient(180deg, #4f8f69 0%, #3b7453 100%) !important;
+  border: 2px solid #22382c !important;
+  border-radius: 12px !important;
+  box-shadow: 4px 4px 0 #b7d3be !important;
+}
+
+:root[data-theme="cozy"] header.sticky {
+  background-color: #fffdf9 !important;
+  border-bottom: 2px solid #2b3f3b !important;
+  box-shadow: 0 3px 0 #cde2d2 !important;
+}
+
+:root[data-theme="cozy"] nav.rounded-2xl {
+  border-radius: 10px !important;
+  border: 2px solid #2b3f3b !important;
+  background-color: #dfece0 !important;
+}
+
+:root[data-theme="cozy"] nav.rounded-2xl button.shadow-sm {
+  border: 2px solid #2b3f3b !important;
+  background-color: #fffdf9 !important;
+  box-shadow: 2px 2px 0 #b7d3be !important;
+}
+
+:root[data-theme="cozy"] .bg-brand-600 {
+  background-color: #e45d50 !important;
+}
+
+:root[data-theme="cozy"] .bg-brand-600:hover {
+  background-color: #cf493c !important;
+}
+
+:root[data-theme="cozy"] input[type="text"],
+:root[data-theme="cozy"] input[type="number"],
+:root[data-theme="cozy"] input[type="url"],
+:root[data-theme="cozy"] input[type="datetime-local"],
+:root[data-theme="cozy"] textarea,
+:root[data-theme="cozy"] select {
+  border-radius: 8px !important;
+  border: 2px solid #75968a !important;
+  background-color: #ffffff !important;
+  color: #1f2e2b !important;
+}
+
+:root[data-theme="cozy"] .rpg-theme-switcher {
+  background-color: #fffdf9;
+  border: 2px solid #2b3f3b;
+  color: #1f2e2b;
+  box-shadow: 3px 3px 0 #b7d3be;
+}
+
+:root[data-theme="cozy"] .rpg-theme-pill-active {
+  background-color: #3b7453;
+  color: #fffdf9;
+  border: 2px solid #22382c;
+}
+
+:root[data-theme="cozy"] .rpg-theme-pill-idle {
+  background-color: #eef6ee;
+  color: #3b524d;
+  border: 2px solid #9ab9a5;
+}
+
+/* ==========================================================================
+   主題 3：經典 JRPG 藍黑指令視窗風 (jrpg - Final Fantasy / Dragon Quest)
+   ========================================================================== */
+:root[data-theme="jrpg"] {
+  background-color: #070b1e;
+  color: #f8fafc;
+}
+
+:root[data-theme="jrpg"] .rpg-tavern-bg,
+:root[data-theme="jrpg"] .bg-slate-50,
+:root[data-theme="jrpg"] .bg-gradient-to-b {
+  background-color: #070b1e !important;
+  background-image:
+    radial-gradient(rgba(147, 197, 253, 0.22) 1px, transparent 1px),
+    radial-gradient(rgba(255, 216, 77, 0.14) 1px, #070b1e 1px) !important;
+  background-size: 24px 24px !important;
+  background-position: 0 0, 12px 12px !important;
+}
+
+:root[data-theme="jrpg"] .bg-white,
+:root[data-theme="jrpg"] .bg-white\/90,
+:root[data-theme="jrpg"] .bg-white\/80 {
+  background: linear-gradient(180deg, #1a2d78 0%, #0d1847 100%) !important;
+  color: #f8fafc !important;
+}
+
+:root[data-theme="jrpg"] .bg-slate-100,
+:root[data-theme="jrpg"] .bg-slate-50\/80 {
+  background-color: #101d52 !important;
+  color: #e2e8f0 !important;
+}
+
+:root[data-theme="jrpg"] .bg-amber-50,
+:root[data-theme="jrpg"] .bg-amber-50\/70,
+:root[data-theme="jrpg"] .bg-amber-50\/90,
+:root[data-theme="jrpg"] .bg-amber-50\/40 {
+  background-color: #29220d !important;
+  color: #fde68a !important;
+}
+
+:root[data-theme="jrpg"] .bg-emerald-50,
+:root[data-theme="jrpg"] .bg-emerald-50\/60,
+:root[data-theme="jrpg"] .bg-emerald-50\/70 {
+  background-color: #0d2b22 !important;
+  color: #a7f3d0 !important;
+}
+
+:root[data-theme="jrpg"] .bg-rose-50,
+:root[data-theme="jrpg"] .bg-rose-50\/50 {
+  background-color: #2d1220 !important;
+  color: #fecdd3 !important;
+}
+
+:root[data-theme="jrpg"] .bg-indigo-50,
+:root[data-theme="jrpg"] .bg-indigo-50\/50,
+:root[data-theme="jrpg"] .bg-indigo-50\/70 {
+  background-color: #161f54 !important;
+  color: #c7d2fe !important;
+}
+
+:root[data-theme="jrpg"] h1,
+:root[data-theme="jrpg"] h2,
+:root[data-theme="jrpg"] h3 {
+  color: #ffd84d !important;
+  text-shadow: 2px 2px 0 #040714;
+}
+
+:root[data-theme="jrpg"] .text-slate-900,
+:root[data-theme="jrpg"] .text-slate-800,
+:root[data-theme="jrpg"] .text-amber-950,
+:root[data-theme="jrpg"] .text-amber-900,
+:root[data-theme="jrpg"] .text-indigo-900 {
+  color: #f8fafc !important;
+}
+
+:root[data-theme="jrpg"] .text-slate-700,
+:root[data-theme="jrpg"] .text-slate-600 {
+  color: #dbeafe !important;
+}
+
+:root[data-theme="jrpg"] .text-slate-500,
+:root[data-theme="jrpg"] .text-slate-400 {
+  color: #93b4f5 !important;
+}
+
+:root[data-theme="jrpg"] .text-brand-600,
+:root[data-theme="jrpg"] .text-brand-500 {
+  color: #ffd84d !important;
+}
+
+:root[data-theme="jrpg"] .text-emerald-700,
+:root[data-theme="jrpg"] .text-emerald-800,
+:root[data-theme="jrpg"] .text-emerald-600 {
+  color: #6ee7b7 !important;
+}
+
+:root[data-theme="jrpg"] .text-amber-800,
+:root[data-theme="jrpg"] .text-amber-700 {
+  color: #fcd34d !important;
+}
+
+:root[data-theme="jrpg"] .text-indigo-700,
+:root[data-theme="jrpg"] .text-indigo-600 {
+  color: #a5b4fc !important;
+}
+
+:root[data-theme="jrpg"] .text-rose-700,
+:root[data-theme="jrpg"] .text-rose-600 {
+  color: #fda4af !important;
+}
+
+/* 經典 JRPG 雙白線像素指令框 */
+:root[data-theme="jrpg"] section.rounded-3xl,
+:root[data-theme="jrpg"] div.rounded-3xl {
+  border-radius: 4px !important;
+  border: 2px solid #f8fafc !important;
+  box-shadow:
+    inset 0 0 0 2px #091030,
+    0 0 0 2px #091030,
+    4px 4px 0 #02040d !important;
+}
+
+:root[data-theme="jrpg"] div.rounded-2xl.shadow-sm {
+  border-radius: 4px !important;
+  border: 2px solid #cbd5e1 !important;
+  box-shadow:
+    inset 0 0 0 1px #091030,
+    3px 3px 0 #02040d !important;
+}
+
+:root[data-theme="jrpg"] .rpg-wood-bar {
+  background: linear-gradient(180deg, #1f3691 0%, #0e194d 100%) !important;
+  border: 2px solid #f8fafc !important;
+  box-shadow:
+    inset 0 0 0 2px #091030,
+    4px 4px 0 #02040d !important;
+}
+
+:root[data-theme="jrpg"] header.sticky {
+  background: linear-gradient(180deg, #162666 0%, #0c1640 100%) !important;
+  border-bottom: 2px solid #f8fafc !important;
+  box-shadow: 0 4px 0 #02040d !important;
+}
+
+:root[data-theme="jrpg"] nav.rounded-2xl {
+  border-radius: 4px !important;
+  border: 2px solid #93c5fd !important;
+  background-color: #091030 !important;
+}
+
+:root[data-theme="jrpg"] nav.rounded-2xl button.shadow-sm {
+  border: 2px solid #ffd84d !important;
+  background: linear-gradient(180deg, #223ca3 0%, #132263 100%) !important;
+  color: #ffd84d !important;
+}
+
+:root[data-theme="jrpg"] .bg-brand-600 {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme="jrpg"] .bg-brand-600:hover {
+  background-color: #1d4ed8 !important;
+}
+
+:root[data-theme="jrpg"] input[type="text"],
+:root[data-theme="jrpg"] input[type="number"],
+:root[data-theme="jrpg"] input[type="url"],
+:root[data-theme="jrpg"] input[type="datetime-local"],
+:root[data-theme="jrpg"] textarea,
+:root[data-theme="jrpg"] select {
+  border-radius: 4px !important;
+  border: 2px solid #93c5fd !important;
+  background-color: #091133 !important;
+  color: #f8fafc !important;
+}
+
+:root[data-theme="jrpg"] input::placeholder,
+:root[data-theme="jrpg"] textarea::placeholder {
+  color: #7c9ce0 !important;
+}
+
+:root[data-theme="jrpg"] .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+:root[data-theme="jrpg"] .border-slate-100,
+:root[data-theme="jrpg"] .border-slate-200 {
+  border-color: rgba(147, 197, 253, 0.25) !important;
+}
+
+:root[data-theme="jrpg"] .rpg-theme-switcher {
+  background: linear-gradient(180deg, #162666 0%, #0d1847 100%);
+  border: 2px solid #f8fafc;
+  color: #ffd84d;
+  box-shadow: 3px 3px 0 #02040d;
+}
+
+:root[data-theme="jrpg"] .rpg-theme-pill-active {
+  background-color: #ffd84d;
+  color: #091030;
+  border: 2px solid #f8fafc;
+}
+
+:root[data-theme="jrpg"] .rpg-theme-pill-idle {
+  background-color: #091030;
+  color: #dbeafe;
+  border: 2px solid #60a5fa;
+}
+
+/* ==========================================================================
+   共用實體 16-bit 按鈕按壓回饋
+   ========================================================================== */
 button.bg-brand-600,
 a.bg-brand-600,
 button.bg-emerald-600,
@@ -125,6 +527,19 @@ button.bg-amber-600 {
   transition: transform 0.06s ease, box-shadow 0.06s ease !important;
 }
 
+:root[data-theme="jrpg"] button.bg-brand-600,
+:root[data-theme="jrpg"] a.bg-brand-600,
+:root[data-theme="jrpg"] button.bg-emerald-600,
+:root[data-theme="jrpg"] a.bg-emerald-600,
+:root[data-theme="jrpg"] button.bg-indigo-600,
+:root[data-theme="jrpg"] a.bg-indigo-600,
+:root[data-theme="jrpg"] button.bg-slate-900,
+:root[data-theme="jrpg"] a.bg-slate-900,
+:root[data-theme="jrpg"] button.bg-amber-600 {
+  border-color: #f8fafc !important;
+  box-shadow: 3px 3px 0 #02040d !important;
+}
+
 button.bg-brand-600:active,
 a.bg-brand-600:active,
 button.bg-emerald-600:active,
@@ -136,77 +551,4 @@ a.bg-slate-900:active,
 button.bg-amber-600:active {
   transform: translate(2px, 2px);
   box-shadow: 1px 1px 0 #2f1b0e !important;
-}
-
-/* 5. 輸入框與下拉選單：古書羊皮紙輸入格 */
-input[type="text"],
-input[type="number"],
-input[type="url"],
-input[type="datetime-local"],
-textarea,
-select {
-  border-radius: 4px !important;
-  border: 2px solid #8a6240 !important;
-  background-color: #fffdf7 !important;
-  color: #2f1b0e !important;
-  box-shadow: inset 2px 2px 0 rgba(92, 56, 34, 0.08);
-}
-
-input:focus,
-textarea:focus,
-select:focus {
-  border-color: #b83525 !important;
-  box-shadow: 0 0 0 2px rgba(247, 201, 72, 0.55) !important;
-}
-
-/* 6. 酒館深木紋頂部招牌列 */
-.rpg-wood-bar {
-  background: linear-gradient(180deg, #6e4226 0%, #56321c 100%) !important;
-  border-bottom: 3px solid #2f1b0e !important;
-  box-shadow:
-    inset 0 2px 0 rgba(247, 201, 72, 0.25),
-    0 4px 0 rgba(47, 27, 14, 0.25) !important;
-}
-
-/* 7. 分頁指令列（JRPG / 16-bit 選單列） */
-nav.rounded-2xl {
-  border-radius: 4px !important;
-  border: 2px solid #4a2e1b !important;
-  background-color: #e4cfa7 !important;
-  box-shadow: inset 2px 2px 0 rgba(59, 35, 20, 0.14);
-}
-
-nav.rounded-2xl button {
-  border-radius: 3px !important;
-}
-
-nav.rounded-2xl button.shadow-sm {
-  border: 2px solid #4a2e1b !important;
-  background-color: #fff9eb !important;
-  box-shadow: 2px 2px 0 #3b2314 !important;
-}
-
-/* 8. 像素徽章與分割線 */
-.divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
-  border-color: #e5d2ae !important;
-}
-
-.border-slate-100,
-.border-slate-200,
-.border-slate-200\/80 {
-  border-color: #d6bc8e !important;
-}
-
-.ring-slate-200,
-.ring-slate-200\/80,
-.ring-slate-200\/70 {
-  --tw-ring-color: #b89464 !important;
-}
-
-/* 像素圖示銳利渲染 */
-img[src$="icon.svg"] {
-  image-rendering: pixelated;
-  border-radius: 4px !important;
-  border: 2px solid #2f1b0e;
-  box-shadow: 2px 2px 0 #2f1b0e;
 }

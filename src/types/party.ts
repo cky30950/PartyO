@@ -1,3 +1,5 @@
+export type AppTheme = 'tavern' | 'cozy' | 'jrpg';
+
 export type RsvpStatus = 'going' | 'maybe' | 'declined';
 
 export type ApprovalStatus = 'approved' | 'pending' | 'waitlist' | 'rejected';

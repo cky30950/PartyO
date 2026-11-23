@@ -1,5 +1,9 @@
 {
   "rules": {
+    "appSettings": {
+      ".read": true,
+      ".write": "auth != null && auth.token.email == 'cky30950@gmail.com' && auth.token.email_verified == true"
+    },
     "adminConfig": {
       ".read": "auth != null && auth.token.email == 'cky30950@gmail.com' && auth.token.email_verified == true",
       ".write": "auth != null && auth.token.email == 'cky30950@gmail.com' && auth.token.email_verified == true"

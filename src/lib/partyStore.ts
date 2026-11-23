@@ -1,6 +1,7 @@
 import { get, onValue, ref, remove, set, update } from 'firebase/database';
 import { rtdb } from './firebase';
 import type {
+  AppTheme,
   ApprovalStatus,
   Expense,
   Guest,
@@ -11,6 +12,7 @@ import type {
 
 const RECENT_CACHE_KEY = 'partyo_recent_parties_v1';
 const HOST_PAYMENT_CACHE_KEY = 'partyo_host_payment_profile_v1';
+const APP_THEME_CACHE_KEY = 'partyo_app_theme_v1';
 
 export function generateId(prefix = ''): string {
   const random = Math.random().toString(36).slice(2, 10);
@@ -299,10 +301,6 @@ export async function adminSetRsvpApproval(
  * 主辦人移除任一參加者（自動判斷屬於 rsvps 或 guests）
  */
 export async function adminRemoveGuest(party: Party, guestId: string): Promise<Party> {
-  const targetInGuests = party.guests.find((g) => g.id === guestId);
-  if (targetInGuests && isHostGuest(targetInGuests)) {
-    return party;
-  }
   const updatedAt = new Date().toISOString();
 
   if (party.rsvps && party.rsvps[guestId]) {
@@ -470,6 +468,57 @@ export function subscribeHostPaymentProfile(
       } else {
         onData(null);
       }
+    },
+    (err) => {
+      onError?.(err);
+    }
+  );
+}
+
+function isValidAppTheme(val: unknown): val is AppTheme {
+  return val === 'tavern' || val === 'cozy' || val === 'jrpg';
+}
+
+export function readCachedAppTheme(): AppTheme {
+  try {
+    const raw = localStorage.getItem(APP_THEME_CACHE_KEY);
+    return isValidAppTheme(raw) ? raw : 'tavern';
+  } catch {
+    return 'tavern';
+  }
+}
+
+function writeCachedAppTheme(theme: AppTheme): void {
+  try {
+    localStorage.setItem(APP_THEME_CACHE_KEY, theme);
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
+/**
+ * 主辦人切換全站主題並即時同步至所有使用者
+ */
+export async function saveAppTheme(theme: AppTheme): Promise<void> {
+  writeCachedAppTheme(theme);
+  await set(ref(rtdb, 'appSettings/theme'), theme);
+}
+
+/**
+ * 全站即時監聽主題設定（所有使用者同步更新）
+ */
+export function subscribeAppTheme(
+  onData: (theme: AppTheme) => void,
+  onError?: (err: Error) => void
+): () => void {
+  const themeRef = ref(rtdb, 'appSettings/theme');
+  return onValue(
+    themeRef,
+    (snap) => {
+      const raw = snap.val();
+      const theme: AppTheme = isValidAppTheme(raw) ? raw : 'tavern';
+      writeCachedAppTheme(theme);
+      onData(theme);
     },
     (err) => {
       onError?.(err);

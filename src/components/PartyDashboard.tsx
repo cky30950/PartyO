@@ -19,12 +19,20 @@ import {
   Edit3,
   X,
 } from 'lucide-react';
-import type { ApprovalStatus, Guest, HostPaymentProfile, Party, RsvpStatus } from '../types/party';
+import type {
+  AppTheme,
+  ApprovalStatus,
+  Guest,
+  HostPaymentProfile,
+  Party,
+  RsvpStatus,
+} from '../types/party';
 import { buildGoogleMapsUrl, formatPartyDateTime, isPartyEnded } from '../lib/calendar';
 import { deleteParty, getPendingRsvps } from '../lib/partyStore';
 import { RsvpTab } from './RsvpTab';
 import { CalendarTab } from './CalendarTab';
 import { ExpensesTab } from './ExpensesTab';
+import { ThemeSwitcher } from './ThemeSwitcher';
 
 type TabKey = 'rsvp' | 'calendar' | 'expenses';
 
@@ -33,6 +41,8 @@ interface PartyDashboardProps {
   isAdmin: boolean;
   currentUser: User | null;
   hostPaymentProfile: HostPaymentProfile | null;
+  appTheme: AppTheme;
+  onChangeTheme: (theme: AppTheme) => void;
   authBusy: boolean;
   authError: string;
   onBack?: () => void;
@@ -64,6 +74,8 @@ export function PartyDashboard({
   isAdmin,
   currentUser,
   hostPaymentProfile,
+  appTheme,
+  onChangeTheme,
   authBusy,
   authError,
   onBack,
@@ -318,6 +330,12 @@ export function PartyDashboard({
       </header>
 
       <main className="mx-auto max-w-2xl px-4 pt-4">
+        {isAdmin ? (
+          <div className="mb-4">
+            <ThemeSwitcher theme={appTheme} onChangeTheme={onChangeTheme} />
+          </div>
+        ) : null}
+
         {/* 置頂即時公告（跨所有分頁顯示） */}
         {hasAnnouncement || isAdmin ? (
           <div className="mb-4">

@@ -13,7 +13,7 @@ import {
   CopyPlus,
   X,
 } from 'lucide-react';
-import type { HostPaymentProfile, Party } from '../types/party';
+import type { AppTheme, HostPaymentProfile, Party } from '../types/party';
 import {
   deleteParty,
   generateId,
@@ -23,12 +23,15 @@ import {
 } from '../lib/partyStore';
 import { formatPartyDateTime, isPartyEnded } from '../lib/calendar';
 import { PlaceAutocomplete } from './PlaceAutocomplete';
+import { ThemeSwitcher } from './ThemeSwitcher';
 
 interface HomeViewProps {
   recentParties: Party[];
   isAdmin: boolean;
   currentUser: User | null;
   hostPaymentProfile?: HostPaymentProfile | null;
+  appTheme?: AppTheme;
+  onChangeTheme?: (theme: AppTheme) => void;
   authBusy?: boolean;
   authError?: string;
   onSignIn?: () => void;
@@ -59,6 +62,8 @@ export function HomeView({
   isAdmin,
   currentUser,
   hostPaymentProfile = null,
+  appTheme = 'tavern',
+  onChangeTheme,
   authBusy = false,
   authError = '',
   onSignIn,
@@ -241,6 +246,12 @@ export function HomeView({
             ) : null}
           </div>
         </div>
+
+        {isAdmin && onChangeTheme ? (
+          <div className="mt-3">
+            <ThemeSwitcher theme={appTheme} onChangeTheme={onChangeTheme} />
+          </div>
+        ) : null}
 
         {authError ? (
           <p className="mt-3 rounded-xl bg-rose-50 px-3.5 py-2 text-xs font-medium text-rose-700">
