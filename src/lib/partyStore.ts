@@ -1,6 +1,6 @@
 import { get, onValue, ref, remove, set, update } from 'firebase/database';
 import { rtdb } from './firebase';
-import type { Expense, Guest, Party, RsvpStatus } from '../types/party';
+import type { ApprovalStatus, Expense, Guest, Party, RsvpStatus } from '../types/party';
 
 const RECENT_CACHE_KEY = 'partyo_recent_parties_v1';
 
@@ -74,20 +74,42 @@ function normalizeParty(raw: Partial<Party> & { id?: string }, fallbackId = ''):
 }
 
 /**
- * 合併主辦人維護的 guests 陣列與訪客登入自填的 rsvps map，供名單與費用分攤共用
+ * 取得已通過審核的正式參加者名單（主辦人手動加入 + 已批准的訪客報名），供正式名單與費用分攤使用
  */
-export function getAllGuests(party: Party): Guest[] {
+export function getApprovedGuests(party: Party): Guest[] {
   const byId = new Map<string, Guest>();
   for (const g of party.guests ?? []) {
-    byId.set(g.id, g);
+    byId.set(g.id, { ...g, approvalStatus: g.approvalStatus ?? 'approved' });
   }
-  const rsvpEntries = Object.values(party.rsvps ?? {}).sort((a, b) =>
-    a.updatedAt.localeCompare(b.updatedAt)
-  );
+  const rsvpEntries = Object.values(party.rsvps ?? {})
+    .filter((g) => (g.approvalStatus ?? 'approved') === 'approved')
+    .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
   for (const g of rsvpEntries) {
     byId.set(g.id, g);
   }
   return Array.from(byId.values());
+}
+
+/**
+ * 取得待主辦人審核的訪客報名名單
+ */
+export function getPendingRsvps(party: Party): Guest[] {
+  return Object.values(party.rsvps ?? {})
+    .filter((g) => g.approvalStatus === 'pending')
+    .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
+}
+
+/**
+ * 取得已被拒絕的訪客報名（僅供主辦人檢視或重新批准）
+ */
+export function getRejectedRsvps(party: Party): Guest[] {
+  return Object.values(party.rsvps ?? {})
+    .filter((g) => g.approvalStatus === 'rejected')
+    .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
+}
+
+export function getAllGuests(party: Party): Guest[] {
+  return getApprovedGuests(party);
 }
 
 function readRecentMap(): Record<string, Party> {
@@ -143,6 +165,7 @@ export async function upsertSelfRsvp(partyId: string, guest: Guest): Promise<voi
     ...guest,
     id: guest.uid,
     uid: guest.uid,
+    approvalStatus: guest.approvalStatus ?? 'pending',
     updatedAt,
   });
 
@@ -206,6 +229,38 @@ export async function adminUpdateGuestStatus(
     updatedAt,
   });
   const nextParty: Party = { ...party, guests: nextGuests, updatedAt };
+  const map = readRecentMap();
+  map[party.id] = nextParty;
+  writeRecentMap(map);
+  return nextParty;
+}
+
+/**
+ * 主辦人審核訪客報名（批准或拒絕）
+ */
+export async function adminSetRsvpApproval(
+  party: Party,
+  guestId: string,
+  approvalStatus: ApprovalStatus
+): Promise<Party> {
+  const existing = party.rsvps?.[guestId];
+  if (!existing) return party;
+
+  const updatedAt = new Date().toISOString();
+  const nextEntry: Guest = stripUndefined({
+    ...existing,
+    approvalStatus,
+    updatedAt,
+  });
+  await update(ref(rtdb, `parties/${party.id}`), {
+    [`rsvps/${guestId}`]: nextEntry,
+    updatedAt,
+  });
+  const nextParty: Party = {
+    ...party,
+    rsvps: { ...(party.rsvps ?? {}), [guestId]: nextEntry },
+    updatedAt,
+  };
   const map = readRecentMap();
   map[party.id] = nextParty;
   writeRecentMap(map);

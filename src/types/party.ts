@@ -1,11 +1,14 @@
 export type RsvpStatus = 'going' | 'maybe' | 'declined';
 
+export type ApprovalStatus = 'approved' | 'pending' | 'rejected';
+
 export interface Guest {
   id: string;
   uid?: string;
   email?: string;
   name: string;
   status: RsvpStatus;
+  approvalStatus?: ApprovalStatus;
   note?: string;
   updatedAt: string;
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { Lock, LogIn, LogOut, ShieldAlert } from 'lucide-react';
-import type { Guest, Party, RsvpStatus } from './types/party';
+import type { ApprovalStatus, Guest, Party, RsvpStatus } from './types/party';
 import {
   auth,
   isAdminUser,
@@ -10,6 +10,7 @@ import {
 } from './lib/firebase';
 import {
   adminRemoveGuest,
+  adminSetRsvpApproval,
   adminUpdateGuestStatus,
   listRecentParties,
   saveParty,
@@ -149,11 +150,15 @@ export function App() {
 
   async function handleSaveSelfRsvp(guest: Guest) {
     if (!party || !user) return;
+    const existing = party.rsvps?.[user.uid];
+    const nextApproval: ApprovalStatus =
+      existing?.approvalStatus === 'approved' ? 'approved' : 'pending';
     const entry: Guest = {
       ...guest,
       id: user.uid,
       uid: user.uid,
       email: user.email ?? undefined,
+      approvalStatus: nextApproval,
       updatedAt: new Date().toISOString(),
     };
     const optimistic: Party = {
@@ -172,6 +177,13 @@ export function App() {
   async function handleAdminChangeGuestStatus(guestId: string, nextStatus: RsvpStatus) {
     if (!party || !isAdmin) return;
     const updated = await adminUpdateGuestStatus(party, guestId, nextStatus);
+    setParty(updated);
+    refreshList();
+  }
+
+  async function handleAdminSetRsvpApproval(guestId: string, approvalStatus: ApprovalStatus) {
+    if (!party || !isAdmin) return;
+    const updated = await adminSetRsvpApproval(party, guestId, approvalStatus);
     setParty(updated);
     refreshList();
   }
@@ -312,6 +324,7 @@ export function App() {
       onUpdateParty={handleUpdateParty}
       onSaveSelfRsvp={handleSaveSelfRsvp}
       onAdminChangeGuestStatus={handleAdminChangeGuestStatus}
+      onAdminSetRsvpApproval={handleAdminSetRsvpApproval}
       onAdminRemoveGuest={handleAdminRemoveGuest}
     />
   );

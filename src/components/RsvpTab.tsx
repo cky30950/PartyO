@@ -10,9 +10,17 @@ import {
   Check,
   LogIn,
   LogOut,
+  Clock,
+  ShieldCheck,
+  X,
 } from 'lucide-react';
-import type { Guest, Party, RsvpStatus } from '../types/party';
-import { generateId, getAllGuests } from '../lib/partyStore';
+import type { ApprovalStatus, Guest, Party, RsvpStatus } from '../types/party';
+import {
+  generateId,
+  getApprovedGuests,
+  getPendingRsvps,
+  getRejectedRsvps,
+} from '../lib/partyStore';
 import { PlaceAutocomplete } from './PlaceAutocomplete';
 
 interface RsvpTabProps {
@@ -26,6 +34,7 @@ interface RsvpTabProps {
   onUpdateParty: (updated: Party) => Promise<void>;
   onSaveSelfRsvp: (guest: Guest) => Promise<void>;
   onAdminChangeGuestStatus: (guestId: string, nextStatus: RsvpStatus) => Promise<void>;
+  onAdminSetRsvpApproval: (guestId: string, approvalStatus: ApprovalStatus) => Promise<void>;
   onAdminRemoveGuest: (guestId: string) => Promise<void>;
 }
 
@@ -61,9 +70,12 @@ export function RsvpTab({
   onUpdateParty,
   onSaveSelfRsvp,
   onAdminChangeGuestStatus,
+  onAdminSetRsvpApproval,
   onAdminRemoveGuest,
 }: RsvpTabProps) {
-  const allGuests = useMemo(() => getAllGuests(party), [party]);
+  const approvedGuests = useMemo(() => getApprovedGuests(party), [party]);
+  const pendingRsvps = useMemo(() => getPendingRsvps(party), [party]);
+  const rejectedRsvps = useMemo(() => getRejectedRsvps(party), [party]);
   const myRsvp = currentUser ? party.rsvps?.[currentUser.uid] : undefined;
 
   // 主辦人新增名單表單狀態
@@ -104,9 +116,9 @@ export function RsvpTab({
     }
   }, [currentUser, isAdmin, myRsvp]);
 
-  const goingCount = allGuests.filter((g) => g.status === 'going').length;
-  const maybeCount = allGuests.filter((g) => g.status === 'maybe').length;
-  const declinedCount = allGuests.filter((g) => g.status === 'declined').length;
+  const goingCount = approvedGuests.filter((g) => g.status === 'going').length;
+  const maybeCount = approvedGuests.filter((g) => g.status === 'maybe').length;
+  const declinedCount = approvedGuests.filter((g) => g.status === 'declined').length;
 
   async function handleAdminAddGuest(e: FormEvent) {
     e.preventDefault();
@@ -118,6 +130,7 @@ export function RsvpTab({
       id: generateId('g'),
       name: trimmed,
       status: adminAddStatus,
+      approvalStatus: 'approved',
       note: adminAddNote.trim(),
       updatedAt: new Date().toISOString(),
     };
@@ -145,6 +158,7 @@ export function RsvpTab({
         email: currentUser.email ?? undefined,
         name: trimmed,
         status: selfStatus,
+        approvalStatus: myRsvp?.approvalStatus === 'approved' ? 'approved' : 'pending',
         note: selfNote.trim(),
         updatedAt: new Date().toISOString(),
       });
@@ -163,6 +177,7 @@ export function RsvpTab({
     await onSaveSelfRsvp({
       ...guest,
       status: nextStatus,
+      approvalStatus: guest.approvalStatus ?? 'approved',
       updatedAt: new Date().toISOString(),
     });
   }
@@ -182,8 +197,73 @@ export function RsvpTab({
     setEditingInfo(false);
   }
 
+  const myApprovalStatus: ApprovalStatus | null = myRsvp
+    ? (myRsvp.approvalStatus ?? 'approved')
+    : null;
+
   return (
     <div className="space-y-5">
+      {/* 主辦人專用：待審核報名列表 */}
+      {isAdmin && pendingRsvps.length > 0 ? (
+        <section className="rounded-3xl bg-amber-50/70 p-5 shadow-sm ring-1 ring-amber-200">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="flex items-center gap-1.5 text-sm font-bold text-amber-900">
+              <Clock className="h-4 w-4 text-amber-600" />
+              待審核報名（{pendingRsvps.length}）
+            </h2>
+            <span className="rounded-full bg-amber-200/70 px-2.5 py-0.5 text-[11px] font-semibold text-amber-900">
+              需你審核
+            </span>
+          </div>
+
+          <div className="mt-3 space-y-2.5">
+            {pendingRsvps.map((guest) => {
+              const meta = STATUS_META[guest.status];
+              return (
+                <div
+                  key={guest.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-3.5 shadow-sm ring-1 ring-amber-200/70"
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <p className="truncate text-sm font-semibold text-slate-900">{guest.name}</p>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${meta.color}`}
+                      >
+                        {meta.label}
+                      </span>
+                    </div>
+                    {guest.email ? (
+                      <p className="truncate text-[11px] text-slate-400">{guest.email}</p>
+                    ) : null}
+                    {guest.note ? (
+                      <p className="mt-0.5 text-xs text-slate-600">備註：{guest.note}</p>
+                    ) : null}
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => onAdminSetRsvpApproval(guest.id, 'approved')}
+                      className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                    >
+                      <Check className="h-3.5 w-3.5" /> 批准
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onAdminSetRsvpApproval(guest.id, 'rejected')}
+                      className="inline-flex items-center gap-1 rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-rose-50 hover:text-rose-600"
+                    >
+                      <X className="h-3.5 w-3.5" /> 拒絕
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
       {/* 活動詳情與編輯 */}
       <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
         <div className="flex items-center justify-between">
@@ -288,7 +368,7 @@ export function RsvpTab({
         )}
       </section>
 
-      {/* 報名區塊：主辦人可手動加人；一般訪客須登入 Google 帳號才可報名及修改自己狀態 */}
+      {/* 報名區塊：主辦人可手動加人；一般訪客須登入 Google 帳號提交報名申請並等主辦人審核 */}
       {isAdmin ? (
         <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
           <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
@@ -350,7 +430,7 @@ export function RsvpTab({
             立即報名（RSVP）
           </h2>
           <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
-            請先登入你的 Google 帳號，即可報名參加並隨時更新自己的出席狀態。
+            請先登入你的 Google 帳號提交報名申請，主辦人審核通過後便會加入正式名單。
           </p>
           {authError ? (
             <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
@@ -386,6 +466,23 @@ export function RsvpTab({
               </button>
             </div>
           </div>
+
+          {myApprovalStatus === 'pending' ? (
+            <div className="mt-3 flex items-start gap-2 rounded-2xl bg-amber-50 px-3.5 py-2.5 text-xs text-amber-800 ring-1 ring-amber-200">
+              <Clock className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+              <span>報名已提交，正等待主辦人審核。審核通過後會自動加入下方正式名單。</span>
+            </div>
+          ) : myApprovalStatus === 'approved' ? (
+            <div className="mt-3 flex items-center gap-1.5 rounded-2xl bg-emerald-50 px-3.5 py-2 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
+              <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600" />
+              <span>你的報名已通過主辦人審核，可隨時更新出席狀態。</span>
+            </div>
+          ) : myApprovalStatus === 'rejected' ? (
+            <div className="mt-3 flex items-start gap-2 rounded-2xl bg-rose-50 px-3.5 py-2.5 text-xs text-rose-700 ring-1 ring-rose-200">
+              <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
+              <span>你的報名暫未獲主辦人批准；如有需要可修改資料後重新提交審核。</span>
+            </div>
+          ) : null}
 
           <form onSubmit={handleSubmitSelfRsvp} className="mt-3 space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -436,18 +533,26 @@ export function RsvpTab({
                 type="submit"
                 className="rounded-xl bg-brand-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-700"
               >
-                {selfSaved ? '已更新 ✓' : myRsvp ? '更新我的狀態' : '確認報名'}
+                {selfSaved
+                  ? '已提交 ✓'
+                  : myApprovalStatus === 'approved'
+                    ? '更新我的狀態'
+                    : myApprovalStatus === 'pending'
+                      ? '更新申請資料'
+                      : myApprovalStatus === 'rejected'
+                        ? '重新提交審核'
+                        : '提交報名申請'}
               </button>
             </div>
           </form>
         </section>
       )}
 
-      {/* 參加者名單 */}
+      {/* 正式參加者名單（僅顯示已通過審核或主辦人加入的成員） */}
       <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-bold text-slate-900">
-            參加者名單（{allGuests.length}）
+            參加者名單（{approvedGuests.length}）
           </h2>
           <div className="flex gap-2 text-xs font-medium">
             <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-emerald-700">
@@ -463,7 +568,7 @@ export function RsvpTab({
         </div>
 
         <div className="mt-4 divide-y divide-slate-100">
-          {allGuests.map((guest) => {
+          {approvedGuests.map((guest) => {
             const meta = STATUS_META[guest.status];
             const Icon = meta.icon;
             const isOwnEntry = Boolean(currentUser && guest.id === currentUser.uid);
@@ -528,6 +633,44 @@ export function RsvpTab({
           })}
         </div>
       </section>
+
+      {/* 主辦人專用：未批准報名紀錄（可重新批准或刪除） */}
+      {isAdmin && rejectedRsvps.length > 0 ? (
+        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
+          <h2 className="text-xs font-bold text-slate-500">
+            未批准的報名（{rejectedRsvps.length}）
+          </h2>
+          <div className="mt-2.5 divide-y divide-slate-100">
+            {rejectedRsvps.map((guest) => (
+              <div key={guest.id} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-semibold text-slate-700">{guest.name}</p>
+                  {guest.email ? (
+                    <p className="truncate text-[11px] text-slate-400">{guest.email}</p>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => onAdminSetRsvpApproval(guest.id, 'approved')}
+                    className="rounded-lg bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100"
+                  >
+                    重新批准
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="刪除記錄"
+                    onClick={() => onAdminRemoveGuest(guest.id)}
+                    className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-rose-600"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

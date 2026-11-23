@@ -14,9 +14,9 @@ import {
   LogIn,
   LogOut,
 } from 'lucide-react';
-import type { Guest, Party, RsvpStatus } from '../types/party';
+import type { ApprovalStatus, Guest, Party, RsvpStatus } from '../types/party';
 import { buildGoogleMapsUrl, formatPartyDateTime } from '../lib/calendar';
-import { deleteParty } from '../lib/partyStore';
+import { deleteParty, getPendingRsvps } from '../lib/partyStore';
 import { RsvpTab } from './RsvpTab';
 import { CalendarTab } from './CalendarTab';
 import { ExpensesTab } from './ExpensesTab';
@@ -35,6 +35,7 @@ interface PartyDashboardProps {
   onUpdateParty: (updated: Party) => Promise<void>;
   onSaveSelfRsvp: (guest: Guest) => Promise<void>;
   onAdminChangeGuestStatus: (guestId: string, nextStatus: RsvpStatus) => Promise<void>;
+  onAdminSetRsvpApproval: (guestId: string, approvalStatus: ApprovalStatus) => Promise<void>;
   onAdminRemoveGuest: (guestId: string) => Promise<void>;
 }
 
@@ -50,9 +51,11 @@ export function PartyDashboard({
   onUpdateParty,
   onSaveSelfRsvp,
   onAdminChangeGuestStatus,
+  onAdminSetRsvpApproval,
   onAdminRemoveGuest,
 }: PartyDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('rsvp');
+  const pendingCount = getPendingRsvps(party).length;
   const [copiedLink, setCopiedLink] = useState(false);
 
   const shareUrl =
@@ -189,6 +192,11 @@ export function PartyDashboard({
             >
               <Users className="h-3.5 w-3.5" />
               活動與報名
+              {isAdmin && pendingCount > 0 ? (
+                <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                  {pendingCount}
+                </span>
+              ) : null}
             </button>
             <button
               type="button"
@@ -231,6 +239,7 @@ export function PartyDashboard({
             onUpdateParty={onUpdateParty}
             onSaveSelfRsvp={onSaveSelfRsvp}
             onAdminChangeGuestStatus={onAdminChangeGuestStatus}
+            onAdminSetRsvpApproval={onAdminSetRsvpApproval}
             onAdminRemoveGuest={onAdminRemoveGuest}
           />
         )}

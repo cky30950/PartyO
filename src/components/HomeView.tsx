@@ -9,7 +9,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import type { Party } from '../types/party';
-import { deleteParty, generateId, getAllGuests, saveParty } from '../lib/partyStore';
+import { deleteParty, generateId, getAllGuests, getPendingRsvps, saveParty } from '../lib/partyStore';
 import { formatPartyDateTime } from '../lib/calendar';
 import { PlaceAutocomplete } from './PlaceAutocomplete';
 
@@ -250,6 +250,7 @@ export function HomeView({
             <div className="space-y-2.5">
               {recentParties.map((p) => {
                 const goingCount = getAllGuests(p).filter((g) => g.status === 'going').length;
+                const pendingCount = getPendingRsvps(p).length;
                 return (
                   <div
                     key={p.id}
@@ -265,8 +266,15 @@ export function HomeView({
                         {formatPartyDateTime(p.startTime, p.endTime)}
                         {p.location ? ` · ${p.location}` : ''}
                       </p>
-                      <p className="mt-1 text-[11px] font-medium text-brand-600">
-                        {goingCount} 人出席 · {p.expenses.length} 筆開支
+                      <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-brand-600">
+                        <span>
+                          {goingCount} 人出席 · {p.expenses.length} 筆開支
+                        </span>
+                        {pendingCount > 0 ? (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                            {pendingCount} 人待審核
+                          </span>
+                        ) : null}
                       </p>
                     </button>
                     <button
