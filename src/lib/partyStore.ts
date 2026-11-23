@@ -1,8 +1,16 @@
 import { get, onValue, ref, remove, set, update } from 'firebase/database';
 import { rtdb } from './firebase';
-import type { ApprovalStatus, Expense, Guest, Party, RsvpStatus } from '../types/party';
+import type {
+  ApprovalStatus,
+  Expense,
+  Guest,
+  HostPaymentProfile,
+  Party,
+  RsvpStatus,
+} from '../types/party';
 
 const RECENT_CACHE_KEY = 'partyo_recent_parties_v1';
+const HOST_PAYMENT_CACHE_KEY = 'partyo_host_payment_profile_v1';
 
 export function generateId(prefix = ''): string {
   const random = Math.random().toString(36).slice(2, 10);
@@ -55,7 +63,10 @@ function normalizeParty(raw: Partial<Party> & { id?: string }, fallbackId = ''):
     location: raw.location ?? '',
     address: raw.address ?? '',
     hostName: raw.hostName ?? '',
-    maxGuests: raw.maxGuests,
+    maxGuests: typeof raw.maxGuests === 'number' && raw.maxGuests > 0 ? raw.maxGuests : undefined,
+    announcement: raw.announcement ?? '',
+    announcementUpdatedAt: raw.announcementUpdatedAt ?? '',
+    manuallyEnded: typeof raw.manuallyEnded === 'boolean' ? raw.manuallyEnded : undefined,
     currency: raw.currency ?? 'HK$',
     paymeLink: raw.paymeLink ?? '',
     paymeQrImage: raw.paymeQrImage ?? '',
@@ -96,6 +107,15 @@ export function getApprovedGuests(party: Party): Guest[] {
 export function getPendingRsvps(party: Party): Guest[] {
   return Object.values(party.rsvps ?? {})
     .filter((g) => g.approvalStatus === 'pending')
+    .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
+}
+
+/**
+ * 取得候補名單（依申請時間先後排序）
+ */
+export function getWaitlistRsvps(party: Party): Guest[] {
+  return Object.values(party.rsvps ?? {})
+    .filter((g) => g.approvalStatus === 'waitlist')
     .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
 }
 
@@ -250,6 +270,7 @@ export async function adminSetRsvpApproval(
   const nextEntry: Guest = stripUndefined({
     ...existing,
     approvalStatus,
+    status: approvalStatus === 'approved' && existing.approvalStatus === 'waitlist' ? 'going' : existing.status,
     updatedAt,
   });
   await update(ref(rtdb, `parties/${party.id}`), {
@@ -380,4 +401,67 @@ export function removeRecentParty(partyId: string): void {
 export async function deleteParty(partyId: string): Promise<void> {
   await remove(ref(rtdb, `parties/${partyId}`));
   removeRecentParty(partyId);
+}
+
+export function readCachedHostPaymentProfile(): HostPaymentProfile | null {
+  try {
+    const raw = localStorage.getItem(HOST_PAYMENT_CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as HostPaymentProfile;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedHostPaymentProfile(profile: HostPaymentProfile | null): void {
+  try {
+    if (!profile) {
+      localStorage.removeItem(HOST_PAYMENT_CACHE_KEY);
+    } else {
+      localStorage.setItem(HOST_PAYMENT_CACHE_KEY, JSON.stringify(profile));
+    }
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
+/**
+ * 將主辦人常用收款資料（PayMe / 轉數快及二維碼）保存到雲端，供下次開新局自動套用
+ */
+export async function saveHostPaymentProfile(profile: HostPaymentProfile): Promise<HostPaymentProfile> {
+  const cleaned: HostPaymentProfile = stripUndefined({
+    paymeLink: profile.paymeLink?.trim() ?? '',
+    paymeQrImage: profile.paymeQrImage ?? '',
+    fpsInfo: profile.fpsInfo?.trim() ?? '',
+    fpsQrImage: profile.fpsQrImage ?? '',
+    updatedAt: new Date().toISOString(),
+  });
+  await set(ref(rtdb, 'adminConfig/paymentProfile'), cleaned);
+  writeCachedHostPaymentProfile(cleaned);
+  return cleaned;
+}
+
+/**
+ * 即時監聽主辦人雲端預設收款資料
+ */
+export function subscribeHostPaymentProfile(
+  onData: (profile: HostPaymentProfile | null) => void,
+  onError?: (err: Error) => void
+): () => void {
+  const profileRef = ref(rtdb, 'adminConfig/paymentProfile');
+  return onValue(
+    profileRef,
+    (snap) => {
+      if (snap.exists()) {
+        const data = snap.val() as HostPaymentProfile;
+        writeCachedHostPaymentProfile(data);
+        onData(data);
+      } else {
+        onData(null);
+      }
+    },
+    (err) => {
+      onError?.(err);
+    }
+  );
 }

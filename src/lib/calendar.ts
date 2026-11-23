@@ -33,9 +33,12 @@ export function hasEndTime(endTime?: string): boolean {
  * - 未指定結束時間：超過開始當日 23:59:59 及開始後 6 小時（取較晚者）視為已結束
  */
 export function isPartyEnded(
-  party: Pick<Party, 'startTime' | 'endTime'>,
+  party: Pick<Party, 'startTime' | 'endTime' | 'manuallyEnded'>,
   now: Date = new Date()
 ): boolean {
+  if (party.manuallyEnded === true) return true;
+  if (party.manuallyEnded === false) return false;
+
   if (hasEndTime(party.endTime)) {
     const end = new Date(party.endTime!);
     if (!Number.isNaN(end.getTime())) {

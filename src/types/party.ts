@@ -1,6 +1,6 @@
 export type RsvpStatus = 'going' | 'maybe' | 'declined';
 
-export type ApprovalStatus = 'approved' | 'pending' | 'rejected';
+export type ApprovalStatus = 'approved' | 'pending' | 'waitlist' | 'rejected';
 
 export interface Guest {
   id: string;
@@ -50,6 +50,9 @@ export interface Party {
   address?: string;
   hostName: string;
   maxGuests?: number;
+  announcement?: string;
+  announcementUpdatedAt?: string;
+  manuallyEnded?: boolean;
   currency: string;
   paymeLink?: string;
   paymeQrImage?: string;
@@ -69,6 +72,14 @@ export interface GuestBalance {
   paid: number;
   owed: number;
   net: number; // positive = should receive, negative = owes others
+}
+
+export interface HostPaymentProfile {
+  paymeLink?: string;
+  paymeQrImage?: string;
+  fpsInfo?: string;
+  fpsQrImage?: string;
+  updatedAt?: string;
 }
 
 export interface Transfer {

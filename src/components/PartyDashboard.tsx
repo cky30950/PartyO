@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import type { User } from 'firebase/auth';
 import {
   ArrowLeft,
@@ -13,8 +13,13 @@ import {
   Trash2,
   LogIn,
   LogOut,
+  Megaphone,
+  Archive,
+  RotateCcw,
+  Edit3,
+  X,
 } from 'lucide-react';
-import type { ApprovalStatus, Guest, Party, RsvpStatus } from '../types/party';
+import type { ApprovalStatus, Guest, HostPaymentProfile, Party, RsvpStatus } from '../types/party';
 import { buildGoogleMapsUrl, formatPartyDateTime, isPartyEnded } from '../lib/calendar';
 import { deleteParty, getPendingRsvps } from '../lib/partyStore';
 import { RsvpTab } from './RsvpTab';
@@ -27,37 +32,58 @@ interface PartyDashboardProps {
   party: Party;
   isAdmin: boolean;
   currentUser: User | null;
+  hostPaymentProfile: HostPaymentProfile | null;
   authBusy: boolean;
   authError: string;
   onBack?: () => void;
   onSignIn: () => Promise<void>;
   onSignOut: () => Promise<void>;
   onUpdateParty: (updated: Party) => Promise<void>;
+  onSaveHostPaymentProfile: (profile: HostPaymentProfile) => Promise<void>;
   onSaveSelfRsvp: (guest: Guest) => Promise<void>;
   onAdminChangeGuestStatus: (guestId: string, nextStatus: RsvpStatus) => Promise<void>;
   onAdminSetRsvpApproval: (guestId: string, approvalStatus: ApprovalStatus) => Promise<void>;
   onAdminRemoveGuest: (guestId: string) => Promise<void>;
 }
 
+function formatAnnouncementTime(iso?: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('zh-HK', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(d);
+}
+
 export function PartyDashboard({
   party,
   isAdmin,
   currentUser,
+  hostPaymentProfile,
   authBusy,
   authError,
   onBack,
   onSignIn,
   onSignOut,
   onUpdateParty,
+  onSaveHostPaymentProfile,
   onSaveSelfRsvp,
   onAdminChangeGuestStatus,
   onAdminSetRsvpApproval,
   onAdminRemoveGuest,
 }: PartyDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('rsvp');
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState(false);
+  const [announcementDraft, setAnnouncementDraft] = useState(party.announcement ?? '');
+
   const pendingCount = getPendingRsvps(party).length;
   const ended = isPartyEnded(party);
-  const [copiedLink, setCopiedLink] = useState(false);
+  const hasAnnouncement = Boolean(party.announcement?.trim());
 
   const shareUrl =
     typeof window !== 'undefined'
@@ -86,6 +112,40 @@ export function PartyDashboard({
     }
   }
 
+  async function handleToggleEnded() {
+    if (!isAdmin) return;
+    if (!ended) {
+      const ok = window.confirm('確定要手動將此活動標記為「已結束」嗎？\n它會移至首頁的已結束區域，之後仍可隨時重新開啟。');
+      if (!ok) return;
+      await onUpdateParty({ ...party, manuallyEnded: true });
+    } else {
+      await onUpdateParty({ ...party, manuallyEnded: false });
+    }
+  }
+
+  async function handleSaveAnnouncement(e: FormEvent) {
+    e.preventDefault();
+    if (!isAdmin) return;
+    const text = announcementDraft.trim();
+    await onUpdateParty({
+      ...party,
+      announcement: text,
+      announcementUpdatedAt: text ? new Date().toISOString() : '',
+    });
+    setEditingAnnouncement(false);
+  }
+
+  async function handleClearAnnouncement() {
+    if (!isAdmin) return;
+    await onUpdateParty({
+      ...party,
+      announcement: '',
+      announcementUpdatedAt: '',
+    });
+    setAnnouncementDraft('');
+    setEditingAnnouncement(false);
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 pb-16">
       <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 backdrop-blur">
@@ -106,7 +166,7 @@ export function PartyDashboard({
               </div>
             )}
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700">
                 <Cloud className="h-3 w-3" /> 線上即時同步中
               </span>
@@ -125,6 +185,29 @@ export function PartyDashboard({
                     ) : (
                       <>
                         <Share2 className="h-3.5 w-3.5" /> 分享派對
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    title={ended ? '重新開啟活動' : '手動標記活動已結束'}
+                    onClick={handleToggleEnded}
+                    className={`inline-flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition ${
+                      ended
+                        ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {ended ? (
+                      <>
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">重新開啟</span>
+                      </>
+                    ) : (
+                      <>
+                        <Archive className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">結束活動</span>
                       </>
                     )}
                   </button>
@@ -234,7 +317,112 @@ export function PartyDashboard({
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-4 pt-5">
+      <main className="mx-auto max-w-2xl px-4 pt-4">
+        {/* 置頂即時公告（跨所有分頁顯示） */}
+        {hasAnnouncement || isAdmin ? (
+          <div className="mb-4">
+            {editingAnnouncement && isAdmin ? (
+              <form
+                onSubmit={handleSaveAnnouncement}
+                className="rounded-2xl bg-amber-50/90 p-4 shadow-sm ring-1 ring-amber-200"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900">
+                    <Megaphone className="h-3.5 w-3.5 text-amber-600" />
+                    編輯置頂即時公告
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEditingAnnouncement(false)}
+                    className="rounded-lg p-1 text-amber-700 hover:bg-amber-100"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <textarea
+                  rows={2}
+                  value={announcementDraft}
+                  onChange={(e) => setAnnouncementDraft(e.target.value)}
+                  placeholder="例如：大廈密碼 1234#、已改在 8 樓 B 室集合、落雨照常舉行..."
+                  className="mt-2 w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-amber-400"
+                />
+                <div className="mt-2.5 flex items-center justify-between gap-2">
+                  {hasAnnouncement ? (
+                    <button
+                      type="button"
+                      onClick={handleClearAnnouncement}
+                      className="text-xs font-medium text-rose-600 hover:underline"
+                    >
+                      清除公告
+                    </button>
+                  ) : (
+                    <span />
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingAnnouncement(false)}
+                      className="rounded-xl px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
+                    >
+                      取消
+                    </button>
+                    <button
+                      type="submit"
+                      className="rounded-xl bg-amber-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+                    >
+                      即時發佈
+                    </button>
+                  </div>
+                </div>
+              </form>
+            ) : hasAnnouncement ? (
+              <div className="flex items-start justify-between gap-3 rounded-2xl bg-amber-50/90 px-4 py-3 shadow-sm ring-1 ring-amber-200/90">
+                <div className="flex min-w-0 items-start gap-2.5">
+                  <Megaphone className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-bold text-amber-900">主辦人置頂公告</span>
+                      {party.announcementUpdatedAt ? (
+                        <span className="text-[10px] text-amber-700/80">
+                          更新於 {formatAnnouncementTime(party.announcementUpdatedAt)}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-0.5 whitespace-pre-line text-xs leading-relaxed text-amber-950">
+                      {party.announcement}
+                    </p>
+                  </div>
+                </div>
+                {isAdmin ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAnnouncementDraft(party.announcement ?? '');
+                      setEditingAnnouncement(true);
+                    }}
+                    className="shrink-0 rounded-lg p-1.5 text-amber-700 hover:bg-amber-100"
+                    title="編輯公告"
+                  >
+                    <Edit3 className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setAnnouncementDraft('');
+                  setEditingAnnouncement(true);
+                }}
+                className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-amber-300 bg-amber-50/40 px-4 py-2 text-xs font-medium text-amber-800 transition hover:bg-amber-50"
+              >
+                <Megaphone className="h-3.5 w-3.5 text-amber-600" />
+                發佈置頂即時公告（房號、大廈密碼、集合點等）
+              </button>
+            )}
+          </div>
+        ) : null}
+
         {activeTab === 'rsvp' && (
           <RsvpTab
             party={party}
@@ -255,7 +443,13 @@ export function PartyDashboard({
           <CalendarTab party={party} shareUrl={shareUrl} isAdmin={isAdmin} />
         )}
         {activeTab === 'expenses' && (
-          <ExpensesTab party={party} isAdmin={isAdmin} onUpdateParty={onUpdateParty} />
+          <ExpensesTab
+            party={party}
+            isAdmin={isAdmin}
+            hostPaymentProfile={hostPaymentProfile}
+            onUpdateParty={onUpdateParty}
+            onSaveHostPaymentProfile={onSaveHostPaymentProfile}
+          />
         )}
 
         <footer className="mt-8 flex justify-center">

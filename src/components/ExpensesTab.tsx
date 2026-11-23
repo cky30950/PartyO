@@ -18,6 +18,7 @@ import {
 import type {
   Expense,
   ExpenseCategory,
+  HostPaymentProfile,
   Party,
   PaymentMethod,
   SplitType,
@@ -38,7 +39,9 @@ import {
 interface ExpensesTabProps {
   party: Party;
   isAdmin: boolean;
+  hostPaymentProfile: HostPaymentProfile | null;
   onUpdateParty: (updated: Party) => Promise<void>;
+  onSaveHostPaymentProfile: (profile: HostPaymentProfile) => Promise<void>;
 }
 
 const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
@@ -58,7 +61,13 @@ const SPLIT_LABELS: Record<SplitType, string> = {
 
 type ActiveQrModal = 'payme' | 'fps' | null;
 
-export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps) {
+export function ExpensesTab({
+  party,
+  isAdmin,
+  hostPaymentProfile,
+  onUpdateParty,
+  onSaveHostPaymentProfile,
+}: ExpensesTabProps) {
   const allGuests = useMemo(() => getAllGuests(party), [party]);
   const activeGuests = useMemo(
     () => allGuests.filter((g) => g.status !== 'declined'),
@@ -81,12 +90,19 @@ export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps)
   const hasPayme = Boolean(party.paymeLink?.trim() || party.paymeQrImage);
   const hasFps = Boolean(party.fpsInfo?.trim() || party.fpsQrImage);
   const hasAnyPayInfo = hasPayme || hasFps;
+  const hasCloudDefaultPayment = Boolean(
+    hostPaymentProfile?.paymeLink?.trim() ||
+      hostPaymentProfile?.paymeQrImage ||
+      hostPaymentProfile?.fpsInfo?.trim() ||
+      hostPaymentProfile?.fpsQrImage
+  );
 
   const [editingPayInfo, setEditingPayInfo] = useState(false);
   const [paymeLink, setPaymeLink] = useState(party.paymeLink ?? '');
   const [paymeQrImage, setPaymeQrImage] = useState(party.paymeQrImage ?? '');
   const [fpsInfo, setFpsInfo] = useState(party.fpsInfo ?? '');
   const [fpsQrImage, setFpsQrImage] = useState(party.fpsQrImage ?? '');
+  const [saveAsCloudDefault, setSaveAsCloudDefault] = useState(true);
   const [qrUploadError, setQrUploadError] = useState('');
   const [savedPayInfo, setSavedPayInfo] = useState(false);
   const [copiedFps, setCopiedFps] = useState(false);
@@ -305,20 +321,50 @@ export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps)
   async function handleSavePayInfo(e: FormEvent) {
     e.preventDefault();
     setQrUploadError('');
+    const nextPay: HostPaymentProfile = {
+      paymeLink: paymeLink.trim(),
+      paymeQrImage,
+      fpsInfo: fpsInfo.trim(),
+      fpsQrImage,
+    };
     try {
       await onUpdateParty({
         ...party,
-        paymeLink: paymeLink.trim(),
-        paymeQrImage: paymeQrImage,
-        fpsInfo: fpsInfo.trim(),
-        fpsQrImage: fpsQrImage,
+        ...nextPay,
       });
+      if (saveAsCloudDefault) {
+        await onSaveHostPaymentProfile(nextPay);
+      }
       setSavedPayInfo(true);
       setEditingPayInfo(false);
       setTimeout(() => setSavedPayInfo(false), 2000);
     } catch (err) {
       const detail = err instanceof Error ? err.message : '無法寫入雲端';
       setQrUploadError(`儲存收款資料失敗：${detail}`);
+    }
+  }
+
+  async function handleApplyCloudDefaultPayment() {
+    if (!hostPaymentProfile) return;
+    setQrUploadError('');
+    try {
+      await onUpdateParty({
+        ...party,
+        paymeLink: hostPaymentProfile.paymeLink ?? '',
+        paymeQrImage: hostPaymentProfile.paymeQrImage ?? '',
+        fpsInfo: hostPaymentProfile.fpsInfo ?? '',
+        fpsQrImage: hostPaymentProfile.fpsQrImage ?? '',
+      });
+      setPaymeLink(hostPaymentProfile.paymeLink ?? '');
+      setPaymeQrImage(hostPaymentProfile.paymeQrImage ?? '');
+      setFpsInfo(hostPaymentProfile.fpsInfo ?? '');
+      setFpsQrImage(hostPaymentProfile.fpsQrImage ?? '');
+      setSavedPayInfo(true);
+      setEditingPayInfo(false);
+      setTimeout(() => setSavedPayInfo(false), 2000);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : '無法寫入雲端';
+      setQrUploadError(`套用預設收款資料失敗：${detail}`);
     }
   }
 
@@ -462,9 +508,20 @@ export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps)
           ) : null}
 
           {!hasAnyPayInfo && !editingPayInfo && isAdmin ? (
-            <p className="mt-2 text-xs text-slate-500">
-              尚未設定 PayMe 或轉數快資料。設定後會在頂部自動顯示可點擊的收款二維碼，方便參加者即時轉帳。
-            </p>
+            <div className="mt-2 space-y-2">
+              <p className="text-xs text-slate-500">
+                尚未設定 PayMe 或轉數快資料。設定後會在頂部自動顯示可點擊的收款二維碼，方便參加者即時轉帳。
+              </p>
+              {hasCloudDefaultPayment ? (
+                <button
+                  type="button"
+                  onClick={handleApplyCloudDefaultPayment}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 transition hover:bg-emerald-100"
+                >
+                  <Check className="h-3.5 w-3.5" /> 一鍵套用已保存的雲端收款資料
+                </button>
+              ) : null}
+            </div>
           ) : null}
 
           {isAdmin && editingPayInfo ? (
@@ -541,24 +598,47 @@ export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps)
                 </div>
               </div>
 
+              <label className="flex cursor-pointer items-center gap-2 rounded-xl bg-emerald-50/70 px-3 py-2 text-xs text-emerald-800 ring-1 ring-emerald-200/80">
+                <input
+                  type="checkbox"
+                  checked={saveAsCloudDefault}
+                  onChange={(e) => setSaveAsCloudDefault(e.target.checked)}
+                  className="h-4 w-4 accent-emerald-600"
+                />
+                <span>同時保存到雲端作為預設收款資料，下次開新局自動套用</span>
+              </label>
+
               {qrUploadError ? (
                 <p className="text-xs font-medium text-rose-600">{qrUploadError}</p>
               ) : null}
 
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingPayInfo(false)}
-                  className="rounded-xl px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
-                >
-                  儲存收款資料
-                </button>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                {hasCloudDefaultPayment ? (
+                  <button
+                    type="button"
+                    onClick={handleApplyCloudDefaultPayment}
+                    className="text-xs font-semibold text-emerald-700 hover:underline"
+                  >
+                    套用雲端預設資料
+                  </button>
+                ) : (
+                  <span />
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingPayInfo(false)}
+                    className="rounded-xl px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+                  >
+                    儲存收款資料
+                  </button>
+                </div>
               </div>
             </form>
           ) : null}

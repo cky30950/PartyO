@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useRef, useState, type FormEvent } from 'react';
 import type { User } from 'firebase/auth';
 import {
   CalendarPlus,
@@ -10,8 +10,10 @@ import {
   LogIn,
   LogOut,
   Archive,
+  CopyPlus,
+  X,
 } from 'lucide-react';
-import type { Party } from '../types/party';
+import type { HostPaymentProfile, Party } from '../types/party';
 import {
   deleteParty,
   generateId,
@@ -26,12 +28,21 @@ interface HomeViewProps {
   recentParties: Party[];
   isAdmin: boolean;
   currentUser: User | null;
+  hostPaymentProfile?: HostPaymentProfile | null;
   authBusy?: boolean;
   authError?: string;
   onSignIn?: () => void;
   onSignOut?: () => void;
   onOpenParty: (partyId: string) => void;
   onRefreshList: () => void;
+}
+
+interface ClonedPayInfo {
+  sourceTitle: string;
+  paymeLink?: string;
+  paymeQrImage?: string;
+  fpsInfo?: string;
+  fpsQrImage?: string;
 }
 
 function getDefaultStartTime(): string {
@@ -47,6 +58,7 @@ export function HomeView({
   recentParties,
   isAdmin,
   currentUser,
+  hostPaymentProfile = null,
   authBusy = false,
   authError = '',
   onSignIn,
@@ -54,13 +66,25 @@ export function HomeView({
   onOpenParty,
   onRefreshList,
 }: HomeViewProps) {
+  const formSectionRef = useRef<HTMLElement | null>(null);
+
   const [title, setTitle] = useState('');
   const [hostName, setHostName] = useState('');
   const [startTime, setStartTime] = useState(() => getDefaultStartTime());
   const [endTime, setEndTime] = useState('');
   const [location, setLocation] = useState('');
   const [address, setAddress] = useState('');
+  const [maxGuests, setMaxGuests] = useState('');
   const [description, setDescription] = useState('');
+  const [clonedPayInfo, setClonedPayInfo] = useState<ClonedPayInfo | null>(null);
+  const [useSavedPaymentProfile, setUseSavedPaymentProfile] = useState(true);
+
+  const hasSavedCloudPayment = Boolean(
+    hostPaymentProfile?.paymeLink?.trim() ||
+      hostPaymentProfile?.paymeQrImage ||
+      hostPaymentProfile?.fpsInfo?.trim() ||
+      hostPaymentProfile?.fpsQrImage
+  );
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -80,6 +104,26 @@ export function HomeView({
     return { activeParties: active, endedParties: ended };
   }, [recentParties]);
 
+  function handleCloneParty(source: Party) {
+    setTitle(`${source.title}（新局）`);
+    setHostName(source.hostName);
+    setLocation(source.location);
+    setAddress(source.address ?? '');
+    setDescription(source.description);
+    setMaxGuests(source.maxGuests ? String(source.maxGuests) : '');
+    setStartTime(getDefaultStartTime());
+    setEndTime('');
+    setClonedPayInfo({
+      sourceTitle: source.title,
+      paymeLink: source.paymeLink,
+      paymeQrImage: source.paymeQrImage,
+      fpsInfo: source.fpsInfo,
+      fpsQrImage: source.fpsQrImage,
+    });
+    setErrorMsg('');
+    formSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
     if (!isAdmin || !title.trim() || !hostName.trim()) return;
@@ -88,6 +132,18 @@ export function HomeView({
     try {
       const now = new Date().toISOString();
       const hostId = generateId('g');
+      const parsedMax = Number(maxGuests);
+      const validMaxGuests =
+        maxGuests.trim() !== '' && Number.isFinite(parsedMax) && parsedMax >= 1
+          ? Math.floor(parsedMax)
+          : undefined;
+
+      const defaultPay = clonedPayInfo
+        ? clonedPayInfo
+        : useSavedPaymentProfile && hasSavedCloudPayment && hostPaymentProfile
+          ? hostPaymentProfile
+          : null;
+
       const party: Party = {
         id: generateId('party'),
         title: title.trim(),
@@ -97,12 +153,18 @@ export function HomeView({
         location: location.trim(),
         address: address.trim(),
         hostName: hostName.trim(),
+        ...(validMaxGuests ? { maxGuests: validMaxGuests } : {}),
         currency: 'HK$',
+        ...(defaultPay?.paymeLink ? { paymeLink: defaultPay.paymeLink } : {}),
+        ...(defaultPay?.paymeQrImage ? { paymeQrImage: defaultPay.paymeQrImage } : {}),
+        ...(defaultPay?.fpsInfo ? { fpsInfo: defaultPay.fpsInfo } : {}),
+        ...(defaultPay?.fpsQrImage ? { fpsQrImage: defaultPay.fpsQrImage } : {}),
         guests: [
           {
             id: hostId,
             name: `${hostName.trim()}（搞手）`,
             status: 'going',
+            approvalStatus: 'approved',
             note: '',
             updatedAt: now,
           },
@@ -113,6 +175,7 @@ export function HomeView({
         updatedAt: now,
       };
       await saveParty(party);
+      setClonedPayInfo(null);
       onRefreshList();
       onOpenParty(party.id);
     } catch (err) {
@@ -204,8 +267,27 @@ export function HomeView({
       <main className="mx-auto max-w-2xl space-y-6 px-4">
         {/* 只有主辦人管理員才看得到「建立新派對」 */}
         {isAdmin ? (
-          <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80 sm:p-6">
+          <section
+            ref={formSectionRef}
+            className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80 sm:p-6"
+          >
             <h2 className="text-base font-bold text-slate-900">建立新派對</h2>
+
+            {clonedPayInfo ? (
+              <div className="mt-3 flex items-start justify-between gap-2 rounded-2xl bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-800 ring-1 ring-emerald-200">
+                <span>
+                  已從「{clonedPayInfo.sourceTitle}」帶入場地、備註、人數上限及 PayMe／轉數快收款資料，調整日期即可開新局。
+                </span>
+                <button
+                  type="button"
+                  aria-label="取消帶入"
+                  onClick={() => setClonedPayInfo(null)}
+                  className="shrink-0 rounded-md p-0.5 text-emerald-600 hover:bg-emerald-100"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : null}
 
             <form onSubmit={handleCreate} className="mt-4 space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -223,7 +305,7 @@ export function HomeView({
                   />
                 </div>
 
-                <div className="sm:col-span-2">
+                <div>
                   <label className="block text-xs font-semibold text-slate-700">
                     搞手名稱 <span className="text-brand-600">*</span>
                   </label>
@@ -233,6 +315,21 @@ export function HomeView({
                     value={hostName}
                     onChange={(e) => setHostName(e.target.value)}
                     placeholder="你的稱呼"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700">
+                    人數上限 <span className="font-normal text-slate-400">（選填）</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={maxGuests}
+                    onChange={(e) => setMaxGuests(e.target.value)}
+                    placeholder="不限人數（填數字將啟用候補）"
                     className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                   />
                 </div>
@@ -293,6 +390,18 @@ export function HomeView({
                 </div>
               </div>
 
+              {!clonedPayInfo && hasSavedCloudPayment ? (
+                <label className="flex cursor-pointer items-center gap-2 rounded-2xl bg-emerald-50/70 px-3.5 py-2.5 text-xs text-emerald-800 ring-1 ring-emerald-200/80">
+                  <input
+                    type="checkbox"
+                    checked={useSavedPaymentProfile}
+                    onChange={(e) => setUseSavedPaymentProfile(e.target.checked)}
+                    className="h-4 w-4 accent-emerald-600"
+                  />
+                  <span>自動帶入已保存的雲端預設收款資料（PayMe／轉數快及二維碼）</span>
+                </label>
+              ) : null}
+
               {errorMsg ? (
                 <p className="rounded-xl bg-rose-50 px-3.5 py-2.5 text-xs font-medium text-rose-700">
                   {errorMsg}
@@ -323,7 +432,7 @@ export function HomeView({
                 return (
                   <div
                     key={p.id}
-                    className="flex items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/80 transition hover:ring-brand-200"
+                    className="flex items-center justify-between gap-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/80 transition hover:ring-brand-200"
                   >
                     <button
                       type="button"
@@ -337,7 +446,8 @@ export function HomeView({
                       </p>
                       <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-brand-600">
                         <span>
-                          {goingCount} 人出席 · {p.expenses.length} 筆開支
+                          {p.maxGuests ? `${goingCount}/${p.maxGuests} 人出席` : `${goingCount} 人出席`} ·{' '}
+                          {p.expenses.length} 筆開支
                         </span>
                         {isAdmin && pendingCount > 0 ? (
                           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
@@ -347,14 +457,25 @@ export function HomeView({
                       </p>
                     </button>
                     {isAdmin ? (
-                      <button
-                        type="button"
-                        aria-label="永久刪除派對（連同雲端資料）"
-                        onClick={() => handleDelete(p)}
-                        className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-rose-600"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          title="一鍵複製此活動開新局"
+                          aria-label="複製此活動開新局"
+                          onClick={() => handleCloneParty(p)}
+                          className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-brand-600"
+                        >
+                          <CopyPlus className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="永久刪除派對（連同雲端資料）"
+                          onClick={() => handleDelete(p)}
+                          className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-rose-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     ) : null}
                   </div>
                 );
@@ -375,7 +496,7 @@ export function HomeView({
                 return (
                   <div
                     key={p.id}
-                    className="flex items-center justify-between gap-3 rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-slate-200/70 transition hover:bg-white hover:ring-slate-300"
+                    className="flex items-center justify-between gap-2 rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-slate-200/70 transition hover:bg-white hover:ring-slate-300"
                   >
                     <button
                       type="button"
@@ -393,18 +514,30 @@ export function HomeView({
                         {p.location ? ` · ${p.location}` : ''}
                       </p>
                       <p className="mt-1 text-[11px] font-medium text-slate-500">
-                        {goingCount} 人出席 · {p.expenses.length} 筆開支
+                        {p.maxGuests ? `${goingCount}/${p.maxGuests} 人出席` : `${goingCount} 人出席`} ·{' '}
+                        {p.expenses.length} 筆開支
                       </p>
                     </button>
                     {isAdmin ? (
-                      <button
-                        type="button"
-                        aria-label="永久刪除派對（連同雲端資料）"
-                        onClick={() => handleDelete(p)}
-                        className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-rose-600"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          title="一鍵複製此活動開新局"
+                          aria-label="複製此活動開新局"
+                          onClick={() => handleCloneParty(p)}
+                          className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-brand-600"
+                        >
+                          <CopyPlus className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="永久刪除派對（連同雲端資料）"
+                          onClick={() => handleDelete(p)}
+                          className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-rose-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     ) : null}
                   </div>
                 );

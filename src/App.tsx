@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
-import type { ApprovalStatus, Guest, Party, RsvpStatus } from './types/party';
+import type {
+  ApprovalStatus,
+  Guest,
+  HostPaymentProfile,
+  Party,
+  RsvpStatus,
+} from './types/party';
 import {
   auth,
   isAdminUser,
@@ -12,8 +18,11 @@ import {
   adminSetRsvpApproval,
   adminUpdateGuestStatus,
   listRecentParties,
+  readCachedHostPaymentProfile,
+  saveHostPaymentProfile,
   saveParty,
   subscribeAllParties,
+  subscribeHostPaymentProfile,
   subscribeParty,
   upsertSelfRsvp,
 } from './lib/partyStore';
@@ -37,6 +46,9 @@ export function App() {
   const [loading, setLoading] = useState<boolean>(Boolean(partyId));
   const [syncError, setSyncError] = useState<string>('');
   const [recentParties, setRecentParties] = useState<Party[]>(() => listRecentParties());
+  const [hostPaymentProfile, setHostPaymentProfile] = useState<HostPaymentProfile | null>(() =>
+    readCachedHostPaymentProfile()
+  );
 
   const isAdmin = isAdminUser(user);
 
@@ -71,11 +83,21 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    if (!isAdmin) return;
+    const unsub = subscribeHostPaymentProfile(
+      (profile) => setHostPaymentProfile(profile),
+      () => {
+        setHostPaymentProfile(readCachedHostPaymentProfile());
+      }
+    );
+    return () => unsub();
+  }, [isAdmin]);
+
+  useEffect(() => {
     if (partyId || !isAdmin) return;
     const unsub = subscribeAllParties(
       (list) => setRecentParties(list),
       () => {
-        // 若 Realtime Database 規則尚未發佈，先回退顯示本機快取列表
         refreshList();
       }
     );
@@ -151,7 +173,11 @@ export function App() {
     if (!party || !user) return;
     const existing = party.rsvps?.[user.uid];
     const nextApproval: ApprovalStatus =
-      existing?.approvalStatus === 'approved' ? 'approved' : 'pending';
+      existing?.approvalStatus === 'approved'
+        ? 'approved'
+        : existing?.approvalStatus === 'waitlist'
+          ? 'waitlist'
+          : 'pending';
     const entry: Guest = {
       ...guest,
       id: user.uid,
@@ -194,6 +220,12 @@ export function App() {
     refreshList();
   }
 
+  async function handleSaveHostPaymentProfile(profile: HostPaymentProfile) {
+    if (!isAdmin) return;
+    const saved = await saveHostPaymentProfile(profile);
+    setHostPaymentProfile(saved);
+  }
+
   if (!partyId) {
     if (!authReady) {
       return (
@@ -208,6 +240,7 @@ export function App() {
         recentParties={recentParties}
         isAdmin={isAdmin}
         currentUser={user}
+        hostPaymentProfile={hostPaymentProfile}
         authBusy={authBusy}
         authError={authError}
         onSignIn={handleSignIn}
@@ -251,12 +284,14 @@ export function App() {
       party={party}
       isAdmin={isAdmin}
       currentUser={user}
+      hostPaymentProfile={hostPaymentProfile}
       authBusy={authBusy}
       authError={authError}
       onBack={() => navigateToParty(null)}
       onSignIn={handleSignIn}
       onSignOut={handleSignOut}
       onUpdateParty={handleUpdateParty}
+      onSaveHostPaymentProfile={handleSaveHostPaymentProfile}
       onSaveSelfRsvp={handleSaveSelfRsvp}
       onAdminChangeGuestStatus={handleAdminChangeGuestStatus}
       onAdminSetRsvpApproval={handleAdminSetRsvpApproval}
