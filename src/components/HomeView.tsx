@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
+import type { User } from 'firebase/auth';
 import {
   CalendarPlus,
   Users,
@@ -6,16 +7,28 @@ import {
   ArrowRight,
   Trash2,
   Cloud,
+  LogIn,
   LogOut,
+  Archive,
 } from 'lucide-react';
 import type { Party } from '../types/party';
-import { deleteParty, generateId, getAllGuests, getPendingRsvps, saveParty } from '../lib/partyStore';
-import { formatPartyDateTime } from '../lib/calendar';
+import {
+  deleteParty,
+  generateId,
+  getAllGuests,
+  getPendingRsvps,
+  saveParty,
+} from '../lib/partyStore';
+import { formatPartyDateTime, isPartyEnded } from '../lib/calendar';
 import { PlaceAutocomplete } from './PlaceAutocomplete';
 
 interface HomeViewProps {
   recentParties: Party[];
-  adminEmail?: string;
+  isAdmin: boolean;
+  currentUser: User | null;
+  authBusy?: boolean;
+  authError?: string;
+  onSignIn?: () => void;
   onSignOut?: () => void;
   onOpenParty: (partyId: string) => void;
   onRefreshList: () => void;
@@ -32,7 +45,11 @@ function getDefaultStartTime(): string {
 
 export function HomeView({
   recentParties,
-  adminEmail,
+  isAdmin,
+  currentUser,
+  authBusy = false,
+  authError = '',
+  onSignIn,
   onSignOut,
   onOpenParty,
   onRefreshList,
@@ -47,9 +64,25 @@ export function HomeView({
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  const { activeParties, endedParties } = useMemo(() => {
+    const now = new Date();
+    const active: Party[] = [];
+    const ended: Party[] = [];
+    for (const p of recentParties) {
+      if (isPartyEnded(p, now)) {
+        ended.push(p);
+      } else {
+        active.push(p);
+      }
+    }
+    active.sort((a, b) => a.startTime.localeCompare(b.startTime));
+    ended.sort((a, b) => b.startTime.localeCompare(a.startTime));
+    return { activeParties: active, endedParties: ended };
+  }, [recentParties]);
+
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
-    if (!title.trim() || !hostName.trim()) return;
+    if (!isAdmin || !title.trim() || !hostName.trim()) return;
     setSubmitting(true);
     setErrorMsg('');
     try {
@@ -90,10 +123,25 @@ export function HomeView({
     }
   }
 
+  async function handleDelete(p: Party) {
+    if (!isAdmin) return;
+    const ok = window.confirm(
+      `確定要永久刪除「${p.title}」嗎？\n這會同時刪除 Firebase 雲端資料，已分享的連結亦會失效。`
+    );
+    if (!ok) return;
+    try {
+      await deleteParty(p.id);
+      onRefreshList();
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : '刪除失敗';
+      setErrorMsg(`刪除雲端資料失敗：${detail}`);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-rose-50/70 via-slate-50 to-slate-100 pb-16">
       <header className="mx-auto max-w-2xl px-4 pt-8 pb-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
             <img src="./icon.svg" alt="PartyO" className="h-10 w-10 rounded-xl shadow-sm" />
             <div>
@@ -105,18 +153,34 @@ export function HomeView({
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800">
               <Cloud className="h-3.5 w-3.5" /> 線上即時同步中
             </span>
-            {onSignOut ? (
+            {currentUser && onSignOut ? (
               <button
                 type="button"
-                title={adminEmail ? `已登入：${adminEmail}` : '登出主辦人帳號'}
+                disabled={authBusy}
+                title={currentUser.email ? `已登入：${currentUser.email}` : '登出帳號'}
                 onClick={onSignOut}
-                className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-slate-900"
+                className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-60"
               >
                 <LogOut className="h-3.5 w-3.5" /> 登出
+              </button>
+            ) : !currentUser && onSignIn ? (
+              <button
+                type="button"
+                disabled={authBusy}
+                onClick={onSignIn}
+                className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-60"
+              >
+                <LogIn className="h-3.5 w-3.5" /> {authBusy ? '登入中...' : 'Google 登入'}
               </button>
             ) : null}
           </div>
         </div>
+
+        {authError ? (
+          <p className="mt-3 rounded-xl bg-rose-50 px-3.5 py-2 text-xs font-medium text-rose-700">
+            {authError}
+          </p>
+        ) : null}
 
         <div className="mt-6 grid grid-cols-3 gap-2.5">
           <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200/70">
@@ -138,117 +202,122 @@ export function HomeView({
       </header>
 
       <main className="mx-auto max-w-2xl space-y-6 px-4">
-        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80 sm:p-6">
-          <h2 className="text-base font-bold text-slate-900">建立新派對</h2>
+        {/* 只有主辦人管理員才看得到「建立新派對」 */}
+        {isAdmin ? (
+          <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80 sm:p-6">
+            <h2 className="text-base font-bold text-slate-900">建立新派對</h2>
 
-          <form onSubmit={handleCreate} className="mt-4 space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700">
-                  活動名稱 <span className="text-brand-600">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="例如：聖誕 Party Room 狂歡夜"
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700">
-                  搞手名稱 <span className="text-brand-600">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={hostName}
-                  onChange={(e) => setHostName(e.target.value)}
-                  placeholder="你的稱呼"
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                />
-              </div>
-
-              <PlaceAutocomplete
-                location={location}
-                address={address}
-                onChangeLocation={setLocation}
-                onChangeAddress={setAddress}
-              />
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700">
-                  開始時間 <span className="text-brand-600">*</span>
-                </label>
-                <input
-                  type="datetime-local"
-                  required
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between">
+            <form onSubmit={handleCreate} className="mt-4 space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-semibold text-slate-700">
-                    結束時間 <span className="font-normal text-slate-400">（選填）</span>
+                    活動名稱 <span className="text-brand-600">*</span>
                   </label>
-                  {endTime ? (
-                    <button
-                      type="button"
-                      onClick={() => setEndTime('')}
-                      className="text-[11px] font-medium text-slate-400 hover:text-brand-600"
-                    >
-                      清除
-                    </button>
-                  ) : null}
+                  <input
+                    type="text"
+                    required
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="例如：聖誕 Party Room 狂歡夜"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  />
                 </div>
-                <input
-                  type="datetime-local"
-                  min={startTime}
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    搞手名稱 <span className="text-brand-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={hostName}
+                    onChange={(e) => setHostName(e.target.value)}
+                    placeholder="你的稱呼"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  />
+                </div>
+
+                <PlaceAutocomplete
+                  location={location}
+                  address={address}
+                  onChangeLocation={setLocation}
+                  onChangeAddress={setAddress}
                 />
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700">
+                    開始時間 <span className="text-brand-600">*</span>
+                  </label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      結束時間 <span className="font-normal text-slate-400">（選填）</span>
+                    </label>
+                    {endTime ? (
+                      <button
+                        type="button"
+                        onClick={() => setEndTime('')}
+                        className="text-[11px] font-medium text-slate-400 hover:text-brand-600"
+                      >
+                        清除
+                      </button>
+                    ) : null}
+                  </div>
+                  <input
+                    type="datetime-local"
+                    min={startTime}
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700">活動備註</label>
+                  <textarea
+                    rows={2}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="例如：Dress code、飲品安排、帶備物品..."
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  />
+                </div>
               </div>
 
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700">活動備註</label>
-                <textarea
-                  rows={2}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="例如：Dress code、飲品安排、帶備物品..."
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                />
-              </div>
-            </div>
+              {errorMsg ? (
+                <p className="rounded-xl bg-rose-50 px-3.5 py-2.5 text-xs font-medium text-rose-700">
+                  {errorMsg}
+                </p>
+              ) : null}
 
-            {errorMsg ? (
-              <p className="rounded-xl bg-rose-50 px-3.5 py-2.5 text-xs font-medium text-rose-700">
-                {errorMsg}
-              </p>
-            ) : null}
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-60"
+              >
+                {submitting ? '建立中...' : '建立派對並生成專屬連結'}
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </form>
+          </section>
+        ) : null}
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-60"
-            >
-              {submitting ? '建立中...' : '建立派對並生成專屬連結'}
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          </form>
-        </section>
-
-        {recentParties.length > 0 && (
+        {activeParties.length > 0 && (
           <section className="space-y-3">
-            <h3 className="px-1 text-sm font-bold text-slate-700">最近開啟過的派對</h3>
+            <h3 className="px-1 text-sm font-bold text-slate-700">
+              進行中及即將舉行的派對（{activeParties.length}）
+            </h3>
             <div className="space-y-2.5">
-              {recentParties.map((p) => {
+              {activeParties.map((p) => {
                 const goingCount = getAllGuests(p).filter((g) => g.status === 'going').length;
                 const pendingCount = getPendingRsvps(p).length;
                 return (
@@ -270,39 +339,88 @@ export function HomeView({
                         <span>
                           {goingCount} 人出席 · {p.expenses.length} 筆開支
                         </span>
-                        {pendingCount > 0 ? (
+                        {isAdmin && pendingCount > 0 ? (
                           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
                             {pendingCount} 人待審核
                           </span>
                         ) : null}
                       </p>
                     </button>
-                    <button
-                      type="button"
-                      aria-label="永久刪除派對（連同雲端資料）"
-                      onClick={async () => {
-                        const ok = window.confirm(
-                          `確定要永久刪除「${p.title}」嗎？\n這會同時刪除 Firebase 雲端資料，已分享的連結亦會失效。`
-                        );
-                        if (!ok) return;
-                        try {
-                          await deleteParty(p.id);
-                          onRefreshList();
-                        } catch (err) {
-                          const detail = err instanceof Error ? err.message : '刪除失敗';
-                          setErrorMsg(`刪除雲端資料失敗：${detail}`);
-                        }
-                      }}
-                      className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-rose-600"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {isAdmin ? (
+                      <button
+                        type="button"
+                        aria-label="永久刪除派對（連同雲端資料）"
+                        onClick={() => handleDelete(p)}
+                        className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-rose-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    ) : null}
                   </div>
                 );
               })}
             </div>
           </section>
         )}
+
+        {endedParties.length > 0 && (
+          <section className="space-y-3">
+            <h3 className="flex items-center gap-1.5 px-1 text-sm font-bold text-slate-500">
+              <Archive className="h-4 w-4 text-slate-400" />
+              已結束的活動（{endedParties.length}）
+            </h3>
+            <div className="space-y-2.5">
+              {endedParties.map((p) => {
+                const goingCount = getAllGuests(p).filter((g) => g.status === 'going').length;
+                return (
+                  <div
+                    key={p.id}
+                    className="flex items-center justify-between gap-3 rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-slate-200/70 transition hover:bg-white hover:ring-slate-300"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onOpenParty(p.id)}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-bold text-slate-700">{p.title}</p>
+                        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                          已結束
+                        </span>
+                      </div>
+                      <p className="mt-0.5 truncate text-xs text-slate-400">
+                        {formatPartyDateTime(p.startTime, p.endTime)}
+                        {p.location ? ` · ${p.location}` : ''}
+                      </p>
+                      <p className="mt-1 text-[11px] font-medium text-slate-500">
+                        {goingCount} 人出席 · {p.expenses.length} 筆開支
+                      </p>
+                    </button>
+                    {isAdmin ? (
+                      <button
+                        type="button"
+                        aria-label="永久刪除派對（連同雲端資料）"
+                        onClick={() => handleDelete(p)}
+                        className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-rose-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {!isAdmin && activeParties.length === 0 && endedParties.length === 0 ? (
+          <section className="rounded-3xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200/80">
+            <p className="text-sm font-semibold text-slate-700">暫未有瀏覽過的派對活動</p>
+            <p className="mt-1 text-xs text-slate-500">
+              打開主辦人分享的專屬活動連結後，活動就會顯示在這裡方便你隨時返回查看。
+            </p>
+          </section>
+        ) : null}
       </main>
     </div>
   );

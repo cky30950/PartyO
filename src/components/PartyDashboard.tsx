@@ -15,7 +15,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import type { ApprovalStatus, Guest, Party, RsvpStatus } from '../types/party';
-import { buildGoogleMapsUrl, formatPartyDateTime } from '../lib/calendar';
+import { buildGoogleMapsUrl, formatPartyDateTime, isPartyEnded } from '../lib/calendar';
 import { deleteParty, getPendingRsvps } from '../lib/partyStore';
 import { RsvpTab } from './RsvpTab';
 import { CalendarTab } from './CalendarTab';
@@ -56,6 +56,7 @@ export function PartyDashboard({
 }: PartyDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('rsvp');
   const pendingCount = getPendingRsvps(party).length;
+  const ended = isPartyEnded(party);
   const [copiedLink, setCopiedLink] = useState(false);
 
   const shareUrl =
@@ -90,7 +91,7 @@ export function PartyDashboard({
       <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 backdrop-blur">
         <div className="mx-auto max-w-2xl px-4 py-3">
           <div className="flex items-center justify-between gap-2">
-            {isAdmin && onBack ? (
+            {onBack ? (
               <button
                 type="button"
                 onClick={onBack}
@@ -155,7 +156,14 @@ export function PartyDashboard({
           </div>
 
           <div className="mt-3">
-            <h1 className="text-lg font-bold tracking-tight text-slate-900">{party.title}</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-lg font-bold tracking-tight text-slate-900">{party.title}</h1>
+              {ended ? (
+                <span className="rounded-full bg-slate-200/80 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                  已結束
+                </span>
+              ) : null}
+            </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
               <span className="inline-flex items-center gap-1">
                 <Calendar className="h-3.5 w-3.5 text-brand-500" />

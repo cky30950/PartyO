@@ -20,10 +20,43 @@ function escapeIcsText(text: string): string {
 }
 
 const DEFAULT_DURATION_MS = 2 * 60 * 60 * 1000; // 未指定結束時間時，日曆預設 2 小時
+const OPEN_ENDED_GRACE_MS = 6 * 60 * 60 * 1000; // 未指定結束時間時，至少保留開始後 6 小時或當日結束
 
 export function hasEndTime(endTime?: string): boolean {
   if (!endTime?.trim()) return false;
   return !Number.isNaN(new Date(endTime).getTime());
+}
+
+/**
+ * 判斷活動是否已結束：
+ * - 有結束時間：超過結束時間即視為已結束
+ * - 未指定結束時間：超過開始當日 23:59:59 及開始後 6 小時（取較晚者）視為已結束
+ */
+export function isPartyEnded(
+  party: Pick<Party, 'startTime' | 'endTime'>,
+  now: Date = new Date()
+): boolean {
+  if (hasEndTime(party.endTime)) {
+    const end = new Date(party.endTime!);
+    if (!Number.isNaN(end.getTime())) {
+      return now.getTime() > end.getTime();
+    }
+  }
+
+  const start = new Date(party.startTime);
+  if (Number.isNaN(start.getTime())) return false;
+
+  const endOfStartDay = new Date(
+    start.getFullYear(),
+    start.getMonth(),
+    start.getDate(),
+    23,
+    59,
+    59,
+    999
+  );
+  const cutoff = Math.max(endOfStartDay.getTime(), start.getTime() + OPEN_ENDED_GRACE_MS);
+  return now.getTime() > cutoff;
 }
 
 /**
