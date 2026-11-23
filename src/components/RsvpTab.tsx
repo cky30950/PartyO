@@ -38,7 +38,7 @@ export function RsvpTab({ party, onUpdateParty }: RsvpTabProps) {
 
   const [editTitle, setEditTitle] = useState(party.title);
   const [editStart, setEditStart] = useState(party.startTime);
-  const [editEnd, setEditEnd] = useState(party.endTime);
+  const [editEnd, setEditEnd] = useState(party.endTime ?? '');
   const [editLocation, setEditLocation] = useState(party.location);
   const [editAddress, setEditAddress] = useState(party.address ?? '');
   const [editDesc, setEditDesc] = useState(party.description);
@@ -91,7 +91,7 @@ export function RsvpTab({ party, onUpdateParty }: RsvpTabProps) {
       ...party,
       title: editTitle.trim() || party.title,
       startTime: editStart,
-      endTime: editEnd,
+      endTime: editEnd.trim(),
       location: editLocation.trim(),
       address: editAddress.trim(),
       description: editDesc.trim(),
@@ -111,7 +111,7 @@ export function RsvpTab({ party, onUpdateParty }: RsvpTabProps) {
               onClick={() => {
                 setEditTitle(party.title);
                 setEditStart(party.startTime);
-                setEditEnd(party.endTime);
+                setEditEnd(party.endTime ?? '');
                 setEditLocation(party.location);
                 setEditAddress(party.address ?? '');
                 setEditDesc(party.description);
@@ -134,18 +134,39 @@ export function RsvpTab({ party, onUpdateParty }: RsvpTabProps) {
               placeholder="活動名稱"
             />
             <div className="grid gap-2.5 sm:grid-cols-2">
-              <input
-                type="datetime-local"
-                value={editStart}
-                onChange={(e) => setEditStart(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-              />
-              <input
-                type="datetime-local"
-                value={editEnd}
-                onChange={(e) => setEditEnd(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-              />
+              <div>
+                <label className="block text-xs font-semibold text-slate-600">開始時間</label>
+                <input
+                  type="datetime-local"
+                  required
+                  value={editStart}
+                  onChange={(e) => setEditStart(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-slate-600">
+                    結束時間 <span className="font-normal text-slate-400">（選填）</span>
+                  </label>
+                  {editEnd ? (
+                    <button
+                      type="button"
+                      onClick={() => setEditEnd('')}
+                      className="text-[11px] font-medium text-slate-400 hover:text-brand-600"
+                    >
+                      清除
+                    </button>
+                  ) : null}
+                </div>
+                <input
+                  type="datetime-local"
+                  min={editStart}
+                  value={editEnd}
+                  onChange={(e) => setEditEnd(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
             </div>
             <PlaceAutocomplete
               location={editLocation}

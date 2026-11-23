@@ -19,14 +19,39 @@ function escapeIcsText(text: string): string {
     .replace(/;/g, '\\;');
 }
 
+const DEFAULT_DURATION_MS = 2 * 60 * 60 * 1000; // 未指定結束時間時，日曆預設 2 小時
+
+export function hasEndTime(endTime?: string): boolean {
+  if (!endTime?.trim()) return false;
+  return !Number.isNaN(new Date(endTime).getTime());
+}
+
+/**
+ * 取得寫入日曆用的結束時間（若未指定或早於開始時間，預設為開始時間後 2 小時）
+ */
+function resolveCalendarEndUtcString(startTime: string, endTime?: string): string {
+  const start = new Date(startTime);
+  if (hasEndTime(endTime)) {
+    const end = new Date(endTime!);
+    if (Number.isNaN(start.getTime()) || end.getTime() > start.getTime()) {
+      return toCalendarUtcString(endTime!);
+    }
+  }
+  if (!Number.isNaN(start.getTime())) {
+    return toCalendarUtcString(new Date(start.getTime() + DEFAULT_DURATION_MS).toISOString());
+  }
+  return toCalendarUtcString(new Date(Date.now() + DEFAULT_DURATION_MS).toISOString());
+}
+
 export function generateICS(party: Party, shareUrl = ''): string {
   const dtStamp = toCalendarUtcString(new Date().toISOString());
   const dtStart = toCalendarUtcString(party.startTime);
-  const dtEnd = toCalendarUtcString(party.endTime);
+  const dtEnd = resolveCalendarEndUtcString(party.startTime, party.endTime);
   const uid = `${party.id}@partyo.app`;
 
   const descriptionParts = [
     party.description.trim(),
+    !hasEndTime(party.endTime) ? '註：活動未指定結束時間' : '',
     party.hostName ? `搞手：${party.hostName}` : '',
     shareUrl ? `派對詳情、報名及 AA 結算：${shareUrl}` : '',
   ].filter(Boolean);
@@ -69,10 +94,11 @@ export function downloadICS(party: Party, shareUrl = ''): void {
 
 export function buildGoogleCalendarUrl(party: Party, shareUrl = ''): string {
   const start = toCalendarUtcString(party.startTime);
-  const end = toCalendarUtcString(party.endTime);
+  const end = resolveCalendarEndUtcString(party.startTime, party.endTime);
 
   const detailsParts = [
     party.description.trim(),
+    !hasEndTime(party.endTime) ? '註：活動未指定結束時間' : '',
     party.hostName ? `搞手：${party.hostName}` : '',
     shareUrl ? `活動報名及 AA 拆帳頁面：${shareUrl}` : '',
   ].filter(Boolean);
@@ -88,9 +114,8 @@ export function buildGoogleCalendarUrl(party: Party, shareUrl = ''): string {
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
-export function formatPartyDateTime(startTime: string, endTime: string): string {
+export function formatPartyDateTime(startTime: string, endTime?: string): string {
   const start = new Date(startTime);
-  const end = new Date(endTime);
   if (Number.isNaN(start.getTime())) return startTime;
 
   const dateFmt = new Intl.DateTimeFormat('zh-HK', {
@@ -104,15 +129,16 @@ export function formatPartyDateTime(startTime: string, endTime: string): string 
     hour12: false,
   });
 
+  if (!hasEndTime(endTime)) {
+    return `${dateFmt.format(start)} ${timeFmt.format(start)} 起`;
+  }
+
+  const end = new Date(endTime!);
   const sameDay =
-    !Number.isNaN(end.getTime()) &&
     start.getFullYear() === end.getFullYear() &&
     start.getMonth() === end.getMonth() &&
     start.getDate() === end.getDate();
 
-  if (Number.isNaN(end.getTime())) {
-    return `${dateFmt.format(start)} ${timeFmt.format(start)}`;
-  }
   if (sameDay) {
     return `${dateFmt.format(start)} ${timeFmt.format(start)} – ${timeFmt.format(end)}`;
   }

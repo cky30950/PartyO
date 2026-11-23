@@ -7,6 +7,7 @@ import {
   buildWhatsAppInviteText,
   downloadICS,
   formatPartyDateTime,
+  hasEndTime,
 } from '../lib/calendar';
 
 interface CalendarTabProps {
@@ -47,6 +48,11 @@ export function CalendarTab({ party, shareUrl }: CalendarTabProps) {
             <p className="mt-2 text-xs font-semibold text-slate-800">
               {formatPartyDateTime(party.startTime, party.endTime)}
             </p>
+            {!hasEndTime(party.endTime) ? (
+              <p className="mt-0.5 text-[11px] text-slate-400">
+                未指定結束時間，匯入日曆時預設為 2 小時（可自行調整）
+              </p>
+            ) : null}
             {party.location || party.address ? (
               <a
                 href={buildGoogleMapsUrl(

@@ -18,24 +18,20 @@ interface HomeViewProps {
   onRefreshList: () => void;
 }
 
-function getDefaultDateTimes(): { start: string; end: string } {
+function getDefaultStartTime(): string {
   const d = new Date();
   d.setDate(d.getDate() + 3);
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
-  return {
-    start: `${yyyy}-${mm}-${dd}T19:00`,
-    end: `${yyyy}-${mm}-${dd}T23:00`,
-  };
+  return `${yyyy}-${mm}-${dd}T19:00`;
 }
 
 export function HomeView({ recentParties, onOpenParty, onRefreshList }: HomeViewProps) {
-  const defaults = getDefaultDateTimes();
   const [title, setTitle] = useState('');
   const [hostName, setHostName] = useState('');
-  const [startTime, setStartTime] = useState(defaults.start);
-  const [endTime, setEndTime] = useState(defaults.end);
+  const [startTime, setStartTime] = useState(() => getDefaultStartTime());
+  const [endTime, setEndTime] = useState('');
   const [location, setLocation] = useState('');
   const [address, setAddress] = useState('');
   const [description, setDescription] = useState('');
@@ -55,7 +51,7 @@ export function HomeView({ recentParties, onOpenParty, onRefreshList }: HomeView
         title: title.trim(),
         description: description.trim(),
         startTime,
-        endTime,
+        endTime: endTime.trim(),
         location: location.trim(),
         address: address.trim(),
         hostName: hostName.trim(),
@@ -162,7 +158,9 @@ export function HomeView({ recentParties, onOpenParty, onRefreshList }: HomeView
               />
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700">開始時間</label>
+                <label className="block text-xs font-semibold text-slate-700">
+                  開始時間 <span className="text-brand-600">*</span>
+                </label>
                 <input
                   type="datetime-local"
                   required
@@ -173,10 +171,23 @@ export function HomeView({ recentParties, onOpenParty, onRefreshList }: HomeView
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700">結束時間</label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    結束時間 <span className="font-normal text-slate-400">（選填）</span>
+                  </label>
+                  {endTime ? (
+                    <button
+                      type="button"
+                      onClick={() => setEndTime('')}
+                      className="text-[11px] font-medium text-slate-400 hover:text-brand-600"
+                    >
+                      清除
+                    </button>
+                  ) : null}
+                </div>
                 <input
                   type="datetime-local"
-                  required
+                  min={startTime}
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"

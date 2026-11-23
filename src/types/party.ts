@@ -39,7 +39,7 @@ export interface Party {
   title: string;
   description: string;
   startTime: string; // ISO string or YYYY-MM-DDTHH:mm local datetime
-  endTime: string;
+  endTime?: string; // 選填，留空代表未指定結束時間
   location: string;
   address?: string;
   hostName: string;
