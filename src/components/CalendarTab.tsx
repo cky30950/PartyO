@@ -13,10 +13,9 @@ import {
 interface CalendarTabProps {
   party: Party;
   shareUrl: string;
-  isAdmin: boolean;
 }
 
-export function CalendarTab({ party, shareUrl, isAdmin }: CalendarTabProps) {
+export function CalendarTab({ party, shareUrl }: CalendarTabProps) {
   const [copiedKey, setCopiedKey] = useState<'link' | 'whatsapp' | null>(null);
 
   const gcalUrl = buildGoogleCalendarUrl(party, shareUrl);
@@ -96,9 +95,8 @@ export function CalendarTab({ party, shareUrl, isAdmin }: CalendarTabProps) {
         </div>
       </section>
 
-      {/* WhatsApp 邀請訊息產生器（僅限主辦人） */}
-      {isAdmin ? (
-        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
+      {/* WhatsApp 邀請訊息產生器 */}
+      <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
         <div className="flex items-center justify-between gap-2">
           <div>
             <h2 className="text-sm font-bold text-slate-900">WhatsApp 群組邀請範本</h2>
@@ -156,7 +154,6 @@ export function CalendarTab({ party, shareUrl, isAdmin }: CalendarTabProps) {
           </button>
         </div>
       </section>
-      ) : null}
     </div>
   );
 }

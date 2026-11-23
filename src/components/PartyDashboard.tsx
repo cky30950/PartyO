@@ -460,7 +460,7 @@ export function PartyDashboard({
           />
         )}
         {activeTab === 'calendar' && (
-          <CalendarTab party={party} shareUrl={shareUrl} isAdmin={isAdmin} />
+          <CalendarTab party={party} shareUrl={shareUrl} />
         )}
         {activeTab === 'expenses' && (
           <ExpensesTab
