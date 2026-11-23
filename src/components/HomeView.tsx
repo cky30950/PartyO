@@ -217,7 +217,7 @@ export function HomeView({
               <h1 className="font-pixel text-lg font-bold tracking-wider text-[#F7C948]">
                 PartyO
               </h1>
-              <p className="text-[11px] text-[#F3E7CC]">冒險者酒館 · 開局 · 日曆邀請 · 費用分攤</p>
+              <p className="text-[11px] text-[#F3E7CC]">開局 · 日曆邀請 · 費用分攤一條龍</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
