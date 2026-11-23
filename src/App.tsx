@@ -123,9 +123,15 @@ export function App() {
 
   async function handleUpdateParty(updated: Party) {
     if (!isAdmin) return;
+    const prev = party;
     setParty(updated);
-    await saveParty(updated);
-    refreshList();
+    try {
+      await saveParty(updated);
+      refreshList();
+    } catch (err) {
+      setParty(prev);
+      throw err;
+    }
   }
 
   async function handleSaveSelfRsvp(guest: Guest) {

@@ -233,28 +233,38 @@ export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps)
       paidByGuestId: payerId,
       splitType,
       participantIds: selectedIds,
-      customShares: parsedShares,
-      exactAmounts: parsedExact,
+      ...(parsedShares ? { customShares: parsedShares } : {}),
+      ...(parsedExact ? { exactAmounts: parsedExact } : {}),
       category,
       createdAt: new Date().toISOString(),
     };
 
-    await onUpdateParty({
-      ...party,
-      expenses: [newExpense, ...party.expenses],
-    });
-
-    setTitle('');
-    setAmount('');
-    setCustomShares({});
-    setExactAmounts({});
+    try {
+      await onUpdateParty({
+        ...party,
+        expenses: [newExpense, ...party.expenses],
+      });
+      setTitle('');
+      setAmount('');
+      setCustomShares({});
+      setExactAmounts({});
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : '無法寫入雲端';
+      setErrorMsg(`儲存開支失敗：${detail}`);
+    }
   }
 
   async function handleDeleteExpense(expenseId: string) {
-    await onUpdateParty({
-      ...party,
-      expenses: party.expenses.filter((e) => e.id !== expenseId),
-    });
+    setErrorMsg('');
+    try {
+      await onUpdateParty({
+        ...party,
+        expenses: party.expenses.filter((e) => e.id !== expenseId),
+      });
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : '無法寫入雲端';
+      setErrorMsg(`刪除開支失敗：${detail}`);
+    }
   }
 
   async function handleMarkPayment(transferKey: string, method?: PaymentMethod) {
@@ -280,24 +290,36 @@ export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps)
       };
     }
 
-    await onUpdateParty({
-      ...party,
-      settlementPayments: nextPayments,
-    });
+    setErrorMsg('');
+    try {
+      await onUpdateParty({
+        ...party,
+        settlementPayments: nextPayments,
+      });
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : '無法寫入雲端';
+      setErrorMsg(`更新收款狀態失敗：${detail}`);
+    }
   }
 
   async function handleSavePayInfo(e: FormEvent) {
     e.preventDefault();
-    await onUpdateParty({
-      ...party,
-      paymeLink: paymeLink.trim(),
-      paymeQrImage: paymeQrImage,
-      fpsInfo: fpsInfo.trim(),
-      fpsQrImage: fpsQrImage,
-    });
-    setSavedPayInfo(true);
-    setEditingPayInfo(false);
-    setTimeout(() => setSavedPayInfo(false), 2000);
+    setQrUploadError('');
+    try {
+      await onUpdateParty({
+        ...party,
+        paymeLink: paymeLink.trim(),
+        paymeQrImage: paymeQrImage,
+        fpsInfo: fpsInfo.trim(),
+        fpsQrImage: fpsQrImage,
+      });
+      setSavedPayInfo(true);
+      setEditingPayInfo(false);
+      setTimeout(() => setSavedPayInfo(false), 2000);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : '無法寫入雲端';
+      setQrUploadError(`儲存收款資料失敗：${detail}`);
+    }
   }
 
   async function handleCopySummary() {

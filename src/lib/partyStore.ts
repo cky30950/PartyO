@@ -19,6 +19,25 @@ export function generateId(prefix = ''): string {
 }
 
 /**
+ * 遞迴移除物件中的 undefined 欄位，避免 Firebase Firestore 拒絕寫入
+ */
+function stripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => stripUndefined(item)) as unknown as T;
+  }
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (v !== undefined) {
+        out[k] = stripUndefined(v);
+      }
+    }
+    return out as T;
+  }
+  return value;
+}
+
+/**
  * 合併主辦人維護的 guests 陣列與訪客登入自填的 rsvps map，供名單與費用分攤共用
  */
 export function getAllGuests(party: Party): Guest[] {
@@ -59,10 +78,10 @@ export function listRecentParties(): Party[] {
 }
 
 export async function saveParty(party: Party): Promise<void> {
-  const updated: Party = {
+  const updated: Party = stripUndefined({
     ...party,
     updatedAt: new Date().toISOString(),
-  };
+  });
 
   const ref = doc(db, 'parties', updated.id);
   await setDoc(ref, updated, { merge: true });
@@ -80,12 +99,12 @@ export async function upsertSelfRsvp(partyId: string, guest: Guest): Promise<voi
     throw new Error('缺少使用者 UID，無法更新報名狀態');
   }
   const updatedAt = new Date().toISOString();
-  const entry: Guest = {
+  const entry: Guest = stripUndefined({
     ...guest,
     id: guest.uid,
     uid: guest.uid,
     updatedAt,
-  };
+  });
   const ref = doc(db, 'parties', partyId);
   await updateDoc(ref, {
     [`rsvps.${guest.uid}`]: entry,
