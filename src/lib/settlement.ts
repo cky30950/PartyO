@@ -7,12 +7,81 @@ import type {
   Transfer,
 } from '../types/party';
 
-function toCents(amount: number): number {
+export function toCents(amount: number): number {
   return Math.round(amount * 100);
 }
 
-function fromCents(cents: number): number {
+export function fromCents(cents: number): number {
   return Math.round(cents) / 100;
+}
+
+/**
+ * 以整數仙加總所有開支，避免浮點數誤差
+ */
+export function sumExpensesTotal(expenses: Expense[]): number {
+  const totalCents = expenses.reduce((sum, e) => sum + toCents(e.amount), 0);
+  return fromCents(totalCents);
+}
+
+export interface TransferPaymentStatus {
+  state: 'paid' | 'partial' | 'unpaid';
+  paidAmount: number;
+  remainingAmount: number;
+  overpaidAmount: number;
+}
+
+/**
+ * 依據已記錄的收款金額與目前應付金額，精確判斷該筆轉帳是否已全額結清、部分已付或待付
+ */
+export function getTransferPaymentStatus(
+  transfer: Pick<Transfer, 'amount'>,
+  payment?: SettlementPayment
+): TransferPaymentStatus {
+  const dueCents = toCents(transfer.amount);
+  if (!payment?.paid) {
+    return {
+      state: 'unpaid',
+      paidAmount: 0,
+      remainingAmount: fromCents(dueCents),
+      overpaidAmount: 0,
+    };
+  }
+
+  // 相容舊資料（未記錄 paidAmount 時視為已全額付款）
+  if (typeof payment.paidAmount !== 'number' || !Number.isFinite(payment.paidAmount)) {
+    return {
+      state: 'paid',
+      paidAmount: fromCents(dueCents),
+      remainingAmount: 0,
+      overpaidAmount: 0,
+    };
+  }
+
+  const paidCents = toCents(payment.paidAmount);
+  if (paidCents >= dueCents) {
+    return {
+      state: 'paid',
+      paidAmount: fromCents(paidCents),
+      remainingAmount: 0,
+      overpaidAmount: fromCents(paidCents - dueCents),
+    };
+  }
+
+  if (paidCents > 0) {
+    return {
+      state: 'partial',
+      paidAmount: fromCents(paidCents),
+      remainingAmount: fromCents(dueCents - paidCents),
+      overpaidAmount: 0,
+    };
+  }
+
+  return {
+    state: 'unpaid',
+    paidAmount: 0,
+    remainingAmount: fromCents(dueCents),
+    overpaidAmount: 0,
+  };
 }
 
 /**
@@ -20,7 +89,7 @@ function fromCents(cents: number): number {
  */
 export function calculateExpenseSplitsCents(expense: Expense): Record<string, number> {
   const totalCents = toCents(expense.amount);
-  const participants = expense.participantIds;
+  const participants = Array.from(new Set(expense.participantIds));
   const result: Record<string, number> = {};
 
   if (participants.length === 0 || totalCents <= 0) {
@@ -52,7 +121,7 @@ export function calculateExpenseSplitsCents(expense: Expense): Record<string, nu
       remainders.push({ id, frac: exact - floored });
     });
 
-    let diff = totalCents - allocated;
+    const diff = totalCents - allocated;
     remainders.sort((a, b) => b.frac - a.frac);
     for (let i = 0; i < diff; i++) {
       result[remainders[i % remainders.length].id] += 1;
@@ -158,7 +227,7 @@ export function buildWhatsAppSettlementText(
   transfers: Transfer[],
   payments: Record<string, SettlementPayment>
 ): string {
-  const total = party.expenses.reduce((sum, e) => sum + e.amount, 0);
+  const total = sumExpensesTotal(party.expenses);
   const lines: string[] = [
     `💰 *${party.title} — 費用結算明細*`,
     `總開支：${formatMoney(total, party.currency)}（共 ${party.expenses.length} 筆）`,
@@ -170,10 +239,14 @@ export function buildWhatsAppSettlementText(
   } else {
     lines.push('📋 *最少轉帳方案*：');
     for (const t of transfers) {
-      const status = payments[t.key];
-      const badge = status?.paid
-        ? `✅ 已付${status.method ? ` (${status.method})` : ''}`
-        : '⏳ 待付';
+      const payment = payments[t.key];
+      const status = getTransferPaymentStatus(t, payment);
+      let badge = '⏳ 待付';
+      if (status.state === 'paid') {
+        badge = `✅ 已付${payment?.method ? ` (${payment.method})` : ''}`;
+      } else if (status.state === 'partial') {
+        badge = `⚠️ 已付 ${formatMoney(status.paidAmount, party.currency)}，仍欠 ${formatMoney(status.remainingAmount, party.currency)}`;
+      }
       lines.push(`• ${t.fromName} ➔ ${t.toName}：*${formatMoney(t.amount, party.currency)}* [${badge}]`);
     }
   }

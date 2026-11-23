@@ -36,6 +36,7 @@ export type PaymentMethod = 'PayMe' | 'FPS' | 'Cash' | 'Other';
 export interface SettlementPayment {
   key: string; // `${fromGuestId}__${toGuestId}`
   paid: boolean;
+  paidAmount?: number; // 記錄確認收款當下的金額，避免補記開支後誤判為已全額付款
   method?: PaymentMethod;
   paidAt?: string;
 }

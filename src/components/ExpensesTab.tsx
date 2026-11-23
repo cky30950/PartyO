@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import {
   Plus,
   Trash2,
@@ -34,6 +34,9 @@ import {
   calculateBalances,
   calculateMinTransfers,
   formatMoney,
+  getTransferPaymentStatus,
+  sumExpensesTotal,
+  toCents,
 } from '../lib/settlement';
 
 interface ExpensesTabProps {
@@ -82,9 +85,27 @@ export function ExpensesTab({
   const [selectedIds, setSelectedIds] = useState<string[]>(() =>
     activeGuests.map((g) => g.id)
   );
+  const knownGuestIdsRef = useRef<Set<string>>(new Set(allGuests.map((g) => g.id)));
   const [customShares, setCustomShares] = useState<Record<string, string>>({});
   const [exactAmounts, setExactAmounts] = useState<Record<string, string>>({});
   const [errorMsg, setErrorMsg] = useState('');
+
+  // 同步參加者名單異動：自動移除已刪除成員，並自動勾選新加入的出席成員
+  useEffect(() => {
+    const validIds = new Set(allGuests.map((g) => g.id));
+    const newlyAddedActiveIds = activeGuests
+      .map((g) => g.id)
+      .filter((id) => !knownGuestIdsRef.current.has(id));
+    knownGuestIdsRef.current = validIds;
+
+    setSelectedIds((prev) => {
+      const cleaned = prev.filter((id) => validIds.has(id));
+      return Array.from(new Set([...cleaned, ...newlyAddedActiveIds]));
+    });
+    if (paidBy && !validIds.has(paidBy)) {
+      setPaidBy(allGuests[0]?.id ?? '');
+    }
+  }, [allGuests, activeGuests, paidBy]);
 
   // 收款資料與二維碼
   const hasPayme = Boolean(party.paymeLink?.trim() || party.paymeQrImage);
@@ -124,10 +145,7 @@ export function ExpensesTab({
     return '';
   }, [party.fpsQrImage, party.fpsInfo]);
 
-  const totalSpent = useMemo(
-    () => party.expenses.reduce((sum, e) => sum + e.amount, 0),
-    [party.expenses]
-  );
+  const totalSpent = useMemo(() => sumExpensesTotal(party.expenses), [party.expenses]);
 
   const balances = useMemo(
     () => calculateBalances(allGuests, party.expenses),
@@ -137,7 +155,7 @@ export function ExpensesTab({
   const transfers = useMemo(() => calculateMinTransfers(balances), [balances]);
 
   const paidTransferCount = transfers.filter(
-    (t) => party.settlementPayments[t.key]?.paid
+    (t) => getTransferPaymentStatus(t, party.settlementPayments[t.key]).state === 'paid'
   ).length;
 
   function toggleParticipant(id: string) {
@@ -196,18 +214,21 @@ export function ExpensesTab({
       setErrorMsg('請先在「活動與報名」新增至少一位參加者');
       return;
     }
-    if (selectedIds.length === 0) {
+    const validGuestIds = new Set(allGuests.map((g) => g.id));
+    const cleanSelectedIds = Array.from(new Set(selectedIds.filter((id) => validGuestIds.has(id))));
+    if (cleanSelectedIds.length === 0) {
       setErrorMsg('請至少選擇一位分攤成員');
       return;
     }
 
+    const totalCents = toCents(numAmount);
     let parsedShares: Record<string, number> | undefined;
     let parsedExact: Record<string, number> | undefined;
 
     if (splitType === 'custom_shares') {
       parsedShares = {};
       let sumShares = 0;
-      for (const id of selectedIds) {
+      for (const id of cleanSelectedIds) {
         const val = Number(customShares[id] ?? '1');
         if (!Number.isFinite(val) || val < 0) {
           setErrorMsg('份數比例必須為 0 或以上數字');
@@ -224,19 +245,20 @@ export function ExpensesTab({
 
     if (splitType === 'exact') {
       parsedExact = {};
-      let sumExact = 0;
-      for (const id of selectedIds) {
+      let sumExactCents = 0;
+      for (const id of cleanSelectedIds) {
         const val = Number(exactAmounts[id] ?? '0');
         if (!Number.isFinite(val) || val < 0) {
           setErrorMsg('自訂金額必須為 0 或以上數字');
           return;
         }
-        parsedExact[id] = val;
-        sumExact += val;
+        const valCents = toCents(val);
+        parsedExact[id] = valCents / 100;
+        sumExactCents += valCents;
       }
-      if (Math.abs(sumExact - numAmount) > 0.02) {
+      if (sumExactCents !== totalCents) {
         setErrorMsg(
-          `自訂金額總和（${formatMoney(sumExact, party.currency)}）需等於總額（${formatMoney(numAmount, party.currency)}）`
+          `自訂金額總和（${formatMoney(sumExactCents / 100, party.currency)}）必須完全等於總額（${formatMoney(totalCents / 100, party.currency)}）`
         );
         return;
       }
@@ -245,10 +267,10 @@ export function ExpensesTab({
     const newExpense: Expense = {
       id: generateId('exp'),
       title: title.trim(),
-      amount: Math.round(numAmount * 100) / 100,
+      amount: totalCents / 100,
       paidByGuestId: payerId,
       splitType,
-      participantIds: selectedIds,
+      participantIds: cleanSelectedIds,
       ...(parsedShares ? { customShares: parsedShares } : {}),
       ...(parsedExact ? { exactAmounts: parsedExact } : {}),
       category,
@@ -283,24 +305,32 @@ export function ExpensesTab({
     }
   }
 
-  async function handleMarkPayment(transferKey: string, method?: PaymentMethod) {
+  async function handleMarkPayment(
+    transferKey: string,
+    transferAmount: number,
+    method?: PaymentMethod
+  ) {
     const current = party.settlementPayments[transferKey];
+    const currentStatus = getTransferPaymentStatus({ amount: transferAmount }, current);
     const nextPayments = { ...party.settlementPayments };
 
     if (!method) {
       nextPayments[transferKey] = {
         key: transferKey,
         paid: false,
+        paidAmount: 0,
       };
-    } else if (current?.paid && current.method === method) {
+    } else if (currentStatus.state === 'paid' && current?.method === method) {
       nextPayments[transferKey] = {
         key: transferKey,
         paid: false,
+        paidAmount: 0,
       };
     } else {
       nextPayments[transferKey] = {
         key: transferKey,
         paid: true,
+        paidAmount: transferAmount,
         method,
         paidAt: new Date().toISOString(),
       };
@@ -703,14 +733,18 @@ export function ExpensesTab({
           <div className="mt-3 space-y-2.5">
             {transfers.map((t) => {
               const payment = party.settlementPayments[t.key];
-              const isPaid = Boolean(payment?.paid);
+              const payStatus = getTransferPaymentStatus(t, payment);
+              const isFullPaid = payStatus.state === 'paid';
+              const isPartialPaid = payStatus.state === 'partial';
               return (
                 <div
                   key={t.key}
                   className={`rounded-2xl p-3.5 ring-1 transition ${
-                    isPaid
+                    isFullPaid
                       ? 'bg-emerald-50/60 ring-emerald-200'
-                      : 'bg-slate-50/80 ring-slate-200/80'
+                      : isPartialPaid
+                        ? 'bg-amber-50/70 ring-amber-200'
+                        : 'bg-slate-50/80 ring-slate-200/80'
                   }`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -719,21 +753,29 @@ export function ExpensesTab({
                       <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
                       <span>{t.toName}</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-bold text-brand-600">
                         {formatMoney(t.amount, party.currency)}
                       </span>
                       <span
                         className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                          isPaid
+                          isFullPaid
                             ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-amber-100 text-amber-800'
+                            : isPartialPaid
+                              ? 'bg-rose-100 text-rose-800'
+                              : 'bg-amber-100 text-amber-800'
                         }`}
                       >
-                        {isPaid ? (
+                        {isFullPaid ? (
                           <>
                             <CheckCircle2 className="h-3 w-3" />
                             已付 ({payment?.method ?? '已確認'})
+                          </>
+                        ) : isPartialPaid ? (
+                          <>
+                            <Clock className="h-3 w-3" />
+                            已收 {formatMoney(payStatus.paidAmount, party.currency)} · 仍欠{' '}
+                            {formatMoney(payStatus.remainingAmount, party.currency)}
                           </>
                         ) : (
                           <>
@@ -744,15 +786,22 @@ export function ExpensesTab({
                     </div>
                   </div>
 
+                  {payStatus.overpaidAmount > 0 ? (
+                    <p className="mt-1.5 text-[11px] font-medium text-amber-700">
+                      提示：原已記錄收款 {formatMoney(payStatus.paidAmount, party.currency)}，目前多收{' '}
+                      {formatMoney(payStatus.overpaidAmount, party.currency)}
+                    </p>
+                  ) : null}
+
                   {isAdmin ? (
                     <div className="mt-2.5 flex flex-wrap gap-1.5">
                       {(['PayMe', 'FPS', 'Cash'] as PaymentMethod[]).map((m) => {
-                        const active = isPaid && payment?.method === m;
+                        const active = isFullPaid && payment?.method === m;
                         return (
                           <button
                             key={m}
                             type="button"
-                            onClick={() => handleMarkPayment(t.key, m)}
+                            onClick={() => handleMarkPayment(t.key, t.amount, m)}
                             className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ring-1 ${
                               active
                                 ? 'bg-emerald-600 text-white ring-emerald-600'
@@ -763,10 +812,10 @@ export function ExpensesTab({
                           </button>
                         );
                       })}
-                      {isPaid ? (
+                      {isFullPaid || isPartialPaid ? (
                         <button
                           type="button"
-                          onClick={() => handleMarkPayment(t.key)}
+                          onClick={() => handleMarkPayment(t.key, t.amount)}
                           className="rounded-lg px-2.5 py-1 text-[11px] font-medium text-slate-500 hover:bg-white"
                         >
                           重設未付
