@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { Lock, LogIn, LogOut, ShieldAlert } from 'lucide-react';
-import type { Guest, Party } from './types/party';
+import type { Guest, Party, RsvpStatus } from './types/party';
 import {
   auth,
   isAdminUser,
@@ -9,10 +9,12 @@ import {
   signOutUser,
 } from './lib/firebase';
 import {
+  adminRemoveGuest,
+  adminUpdateGuestStatus,
   listRecentParties,
   saveParty,
   subscribeParty,
-  updatePartyGuests,
+  upsertSelfRsvp,
 } from './lib/partyStore';
 import { HomeView } from './components/HomeView';
 import { PartyDashboard } from './components/PartyDashboard';
@@ -126,15 +128,39 @@ export function App() {
     refreshList();
   }
 
-  async function handleUpdateGuests(guests: Guest[]) {
-    if (!party) return;
-    const optimistic: Party = {
-      ...party,
-      guests,
+  async function handleSaveSelfRsvp(guest: Guest) {
+    if (!party || !user) return;
+    const entry: Guest = {
+      ...guest,
+      id: user.uid,
+      uid: user.uid,
+      email: user.email ?? undefined,
       updatedAt: new Date().toISOString(),
     };
+    const optimistic: Party = {
+      ...party,
+      rsvps: {
+        ...(party.rsvps ?? {}),
+        [user.uid]: entry,
+      },
+      updatedAt: entry.updatedAt,
+    };
     setParty(optimistic);
-    await updatePartyGuests(party.id, guests);
+    await upsertSelfRsvp(party.id, entry);
+    refreshList();
+  }
+
+  async function handleAdminChangeGuestStatus(guestId: string, nextStatus: RsvpStatus) {
+    if (!party || !isAdmin) return;
+    const updated = await adminUpdateGuestStatus(party, guestId, nextStatus);
+    setParty(updated);
+    refreshList();
+  }
+
+  async function handleAdminRemoveGuest(guestId: string) {
+    if (!party || !isAdmin) return;
+    const updated = await adminRemoveGuest(party, guestId);
+    setParty(updated);
     refreshList();
   }
 
@@ -258,12 +284,16 @@ export function App() {
     <PartyDashboard
       party={party}
       isAdmin={isAdmin}
-      adminEmail={user?.email ?? ''}
+      currentUser={user}
+      authBusy={authBusy}
+      authError={authError}
       onBack={isAdmin ? () => navigateToParty(null) : undefined}
-      onAdminSignIn={handleSignIn}
-      onAdminSignOut={handleSignOut}
+      onSignIn={handleSignIn}
+      onSignOut={handleSignOut}
       onUpdateParty={handleUpdateParty}
-      onUpdateGuests={handleUpdateGuests}
+      onSaveSelfRsvp={handleSaveSelfRsvp}
+      onAdminChangeGuestStatus={handleAdminChangeGuestStatus}
+      onAdminRemoveGuest={handleAdminRemoveGuest}
     />
   );
 }

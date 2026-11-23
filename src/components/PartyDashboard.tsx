@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { User } from 'firebase/auth';
 import {
   ArrowLeft,
   Calendar,
@@ -10,10 +11,10 @@ import {
   CalendarPlus,
   Cloud,
   Trash2,
-  Lock,
+  LogIn,
   LogOut,
 } from 'lucide-react';
-import type { Guest, Party } from '../types/party';
+import type { Guest, Party, RsvpStatus } from '../types/party';
 import { buildGoogleMapsUrl, formatPartyDateTime } from '../lib/calendar';
 import { deleteParty } from '../lib/partyStore';
 import { RsvpTab } from './RsvpTab';
@@ -25,23 +26,31 @@ type TabKey = 'rsvp' | 'calendar' | 'expenses';
 interface PartyDashboardProps {
   party: Party;
   isAdmin: boolean;
-  adminEmail?: string;
+  currentUser: User | null;
+  authBusy: boolean;
+  authError: string;
   onBack?: () => void;
-  onAdminSignIn?: () => Promise<void>;
-  onAdminSignOut?: () => Promise<void>;
+  onSignIn: () => Promise<void>;
+  onSignOut: () => Promise<void>;
   onUpdateParty: (updated: Party) => Promise<void>;
-  onUpdateGuests: (guests: Guest[]) => Promise<void>;
+  onSaveSelfRsvp: (guest: Guest) => Promise<void>;
+  onAdminChangeGuestStatus: (guestId: string, nextStatus: RsvpStatus) => Promise<void>;
+  onAdminRemoveGuest: (guestId: string) => Promise<void>;
 }
 
 export function PartyDashboard({
   party,
   isAdmin,
-  adminEmail,
+  currentUser,
+  authBusy,
+  authError,
   onBack,
-  onAdminSignIn,
-  onAdminSignOut,
+  onSignIn,
+  onSignOut,
   onUpdateParty,
-  onUpdateGuests,
+  onSaveSelfRsvp,
+  onAdminChangeGuestStatus,
+  onAdminRemoveGuest,
 }: PartyDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('rsvp');
   const [copiedLink, setCopiedLink] = useState(false);
@@ -214,8 +223,15 @@ export function PartyDashboard({
           <RsvpTab
             party={party}
             isAdmin={isAdmin}
+            currentUser={currentUser}
+            authBusy={authBusy}
+            authError={authError}
+            onSignIn={onSignIn}
+            onSignOut={onSignOut}
             onUpdateParty={onUpdateParty}
-            onUpdateGuests={onUpdateGuests}
+            onSaveSelfRsvp={onSaveSelfRsvp}
+            onAdminChangeGuestStatus={onAdminChangeGuestStatus}
+            onAdminRemoveGuest={onAdminRemoveGuest}
           />
         )}
         {activeTab === 'calendar' && (
@@ -226,24 +242,28 @@ export function PartyDashboard({
         )}
 
         <footer className="mt-8 flex justify-center">
-          {isAdmin && onAdminSignOut ? (
+          {currentUser ? (
             <button
               type="button"
-              onClick={onAdminSignOut}
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium text-slate-400 transition hover:bg-slate-200/60 hover:text-slate-600"
+              disabled={authBusy}
+              onClick={onSignOut}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium text-slate-400 transition hover:bg-slate-200/60 hover:text-slate-600 disabled:opacity-60"
             >
               <LogOut className="h-3 w-3" />
-              主辦人模式（{adminEmail}）· 登出
+              {isAdmin
+                ? `主辦人模式（${currentUser.email}）· 登出`
+                : `已登入：${currentUser.displayName || currentUser.email} · 登出`}
             </button>
-          ) : onAdminSignIn ? (
+          ) : (
             <button
               type="button"
-              onClick={onAdminSignIn}
-              className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-medium text-slate-400 transition hover:bg-slate-200/60 hover:text-slate-600"
+              disabled={authBusy}
+              onClick={onSignIn}
+              className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-medium text-slate-400 transition hover:bg-slate-200/60 hover:text-slate-600 disabled:opacity-60"
             >
-              <Lock className="h-3 w-3" /> 主辦人登入
+              <LogIn className="h-3 w-3" /> Google 登入
             </button>
-          ) : null}
+          )}
         </footer>
       </main>
     </div>

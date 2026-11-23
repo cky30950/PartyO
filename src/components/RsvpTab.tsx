@@ -1,14 +1,32 @@
-import { useState, type FormEvent } from 'react';
-import { CheckCircle2, HelpCircle, XCircle, UserPlus, Trash2, Edit3, Check } from 'lucide-react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import type { User } from 'firebase/auth';
+import {
+  CheckCircle2,
+  HelpCircle,
+  XCircle,
+  UserPlus,
+  Trash2,
+  Edit3,
+  Check,
+  LogIn,
+  LogOut,
+} from 'lucide-react';
 import type { Guest, Party, RsvpStatus } from '../types/party';
-import { generateId } from '../lib/partyStore';
+import { generateId, getAllGuests } from '../lib/partyStore';
 import { PlaceAutocomplete } from './PlaceAutocomplete';
 
 interface RsvpTabProps {
   party: Party;
   isAdmin: boolean;
+  currentUser: User | null;
+  authBusy: boolean;
+  authError: string;
+  onSignIn: () => Promise<void>;
+  onSignOut: () => Promise<void>;
   onUpdateParty: (updated: Party) => Promise<void>;
-  onUpdateGuests: (guests: Guest[]) => Promise<void>;
+  onSaveSelfRsvp: (guest: Guest) => Promise<void>;
+  onAdminChangeGuestStatus: (guestId: string, nextStatus: RsvpStatus) => Promise<void>;
+  onAdminRemoveGuest: (guestId: string) => Promise<void>;
 }
 
 const STATUS_META: Record<
@@ -32,12 +50,36 @@ const STATUS_META: Record<
   },
 };
 
-export function RsvpTab({ party, isAdmin, onUpdateParty, onUpdateGuests }: RsvpTabProps) {
-  const [name, setName] = useState('');
-  const [status, setStatus] = useState<RsvpStatus>('going');
-  const [note, setNote] = useState('');
-  const [editingInfo, setEditingInfo] = useState(false);
+export function RsvpTab({
+  party,
+  isAdmin,
+  currentUser,
+  authBusy,
+  authError,
+  onSignIn,
+  onSignOut,
+  onUpdateParty,
+  onSaveSelfRsvp,
+  onAdminChangeGuestStatus,
+  onAdminRemoveGuest,
+}: RsvpTabProps) {
+  const allGuests = useMemo(() => getAllGuests(party), [party]);
+  const myRsvp = currentUser ? party.rsvps?.[currentUser.uid] : undefined;
 
+  // 主辦人新增名單表單狀態
+  const [adminAddName, setAdminAddName] = useState('');
+  const [adminAddStatus, setAdminAddStatus] = useState<RsvpStatus>('going');
+  const [adminAddNote, setAdminAddNote] = useState('');
+
+  // 一般登入訪客個人報名表單狀態
+  const [selfName, setSelfName] = useState('');
+  const [selfStatus, setSelfStatus] = useState<RsvpStatus>('going');
+  const [selfNote, setSelfNote] = useState('');
+  const [selfSaved, setSelfSaved] = useState(false);
+  const [selfError, setSelfError] = useState('');
+
+  // 主辦人編輯活動資料狀態
+  const [editingInfo, setEditingInfo] = useState(false);
   const [editTitle, setEditTitle] = useState(party.title);
   const [editStart, setEditStart] = useState(party.startTime);
   const [editEnd, setEditEnd] = useState(party.endTime ?? '');
@@ -45,44 +87,89 @@ export function RsvpTab({ party, isAdmin, onUpdateParty, onUpdateGuests }: RsvpT
   const [editAddress, setEditAddress] = useState(party.address ?? '');
   const [editDesc, setEditDesc] = useState(party.description);
 
-  const goingCount = party.guests.filter((g) => g.status === 'going').length;
-  const maybeCount = party.guests.filter((g) => g.status === 'maybe').length;
-  const declinedCount = party.guests.filter((g) => g.status === 'declined').length;
+  useEffect(() => {
+    if (!currentUser || isAdmin) return;
+    if (myRsvp) {
+      setSelfName(myRsvp.name);
+      setSelfStatus(myRsvp.status);
+      setSelfNote(myRsvp.note ?? '');
+    } else {
+      const defaultName =
+        currentUser.displayName?.trim() ||
+        currentUser.email?.split('@')[0] ||
+        '';
+      setSelfName(defaultName);
+      setSelfStatus('going');
+      setSelfNote('');
+    }
+  }, [currentUser, isAdmin, myRsvp]);
 
-  async function handleAddGuest(e: FormEvent) {
+  const goingCount = allGuests.filter((g) => g.status === 'going').length;
+  const maybeCount = allGuests.filter((g) => g.status === 'maybe').length;
+  const declinedCount = allGuests.filter((g) => g.status === 'declined').length;
+
+  async function handleAdminAddGuest(e: FormEvent) {
     e.preventDefault();
-    const trimmed = name.trim();
+    if (!isAdmin) return;
+    const trimmed = adminAddName.trim();
     if (!trimmed) return;
 
     const newGuest: Guest = {
       id: generateId('g'),
       name: trimmed,
-      status,
-      note: note.trim(),
+      status: adminAddStatus,
+      note: adminAddNote.trim(),
       updatedAt: new Date().toISOString(),
     };
 
-    await onUpdateGuests([...party.guests, newGuest]);
-    setName('');
-    setNote('');
-    setStatus('going');
+    await onUpdateParty({
+      ...party,
+      guests: [...party.guests, newGuest],
+    });
+    setAdminAddName('');
+    setAdminAddNote('');
+    setAdminAddStatus('going');
   }
 
-  async function handleChangeStatus(guestId: string, nextStatus: RsvpStatus) {
-    await onUpdateGuests(
-      party.guests.map((g) =>
-        g.id === guestId ? { ...g, status: nextStatus, updatedAt: new Date().toISOString() } : g
-      )
-    );
+  async function handleSubmitSelfRsvp(e: FormEvent) {
+    e.preventDefault();
+    if (!currentUser) return;
+    const trimmed = selfName.trim();
+    if (!trimmed) return;
+
+    setSelfError('');
+    try {
+      await onSaveSelfRsvp({
+        id: currentUser.uid,
+        uid: currentUser.uid,
+        email: currentUser.email ?? undefined,
+        name: trimmed,
+        status: selfStatus,
+        note: selfNote.trim(),
+        updatedAt: new Date().toISOString(),
+      });
+      setSelfSaved(true);
+      setTimeout(() => setSelfSaved(false), 2000);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : '儲存報名狀態失敗';
+      setSelfError(`更新失敗：${detail}`);
+    }
   }
 
-  async function handleRemoveGuest(guestId: string) {
-    if (!isAdmin) return;
-    await onUpdateGuests(party.guests.filter((g) => g.id !== guestId));
+  async function handleToggleOwnStatus(guest: Guest) {
+    if (!currentUser || guest.id !== currentUser.uid) return;
+    const order: RsvpStatus[] = ['going', 'maybe', 'declined'];
+    const nextStatus = order[(order.indexOf(guest.status) + 1) % order.length];
+    await onSaveSelfRsvp({
+      ...guest,
+      status: nextStatus,
+      updatedAt: new Date().toISOString(),
+    });
   }
 
   async function handleSaveInfo(e: FormEvent) {
     e.preventDefault();
+    if (!isAdmin) return;
     await onUpdateParty({
       ...party,
       title: editTitle.trim() || party.title,
@@ -201,66 +288,166 @@ export function RsvpTab({ party, isAdmin, onUpdateParty, onUpdateGuests }: RsvpT
         )}
       </section>
 
-      {/* 快速報名 RSVP */}
-      <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
-        <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
-          <UserPlus className="h-4 w-4 text-brand-600" />
-          立即填名報名（RSVP）
-        </h2>
-        <form onSubmit={handleAddGuest} className="mt-3 space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="你的名字 / 稱呼"
-              className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-            />
-            <input
-              type="text"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="備註（例如：唔飲酒、8點半先到）"
-              className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-            />
+      {/* 報名區塊：主辦人可手動加人；一般訪客須登入 Google 帳號才可報名及修改自己狀態 */}
+      {isAdmin ? (
+        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
+          <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
+            <UserPlus className="h-4 w-4 text-brand-600" />
+            手動新增參加者（主辦人）
+          </h2>
+          <form onSubmit={handleAdminAddGuest} className="mt-3 space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input
+                type="text"
+                required
+                value={adminAddName}
+                onChange={(e) => setAdminAddName(e.target.value)}
+                placeholder="參加者名字 / 稱呼"
+                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              />
+              <input
+                type="text"
+                value={adminAddNote}
+                onChange={(e) => setAdminAddNote(e.target.value)}
+                placeholder="備註（例如：唔飲酒、8點半先到）"
+                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex gap-2">
+                {(['going', 'maybe', 'declined'] as RsvpStatus[]).map((s) => {
+                  const active = adminAddStatus === s;
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setAdminAddStatus(s)}
+                      className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ring-1 ${
+                        active
+                          ? STATUS_META[s].color
+                          : 'bg-white text-slate-500 ring-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {STATUS_META[s].label}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="submit"
+                className="rounded-xl bg-brand-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-700"
+              >
+                加入名單
+              </button>
+            </div>
+          </form>
+        </section>
+      ) : !currentUser ? (
+        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
+          <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
+            <UserPlus className="h-4 w-4 text-brand-600" />
+            立即報名（RSVP）
+          </h2>
+          <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+            請先登入你的 Google 帳號，即可報名參加並隨時更新自己的出席狀態。
+          </p>
+          {authError ? (
+            <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+              {authError}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            disabled={authBusy}
+            onClick={onSignIn}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-600 px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-60"
+          >
+            <LogIn className="h-4 w-4" />
+            {authBusy ? '登入中...' : '使用 Google 帳號登入並報名'}
+          </button>
+        </section>
+      ) : (
+        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
+              <UserPlus className="h-4 w-4 text-brand-600" />
+              {myRsvp ? '我的報名狀態' : '立即報名（RSVP）'}
+            </h2>
+            <div className="flex items-center gap-2 text-[11px] text-slate-500">
+              <span className="max-w-[180px] truncate">{currentUser.email}</span>
+              <button
+                type="button"
+                disabled={authBusy}
+                onClick={onSignOut}
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <LogOut className="h-3 w-3" /> 登出
+              </button>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex gap-2">
-              {(['going', 'maybe', 'declined'] as RsvpStatus[]).map((s) => {
-                const active = status === s;
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setStatus(s)}
-                    className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ring-1 ${
-                      active
-                        ? STATUS_META[s].color
-                        : 'bg-white text-slate-500 ring-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    {STATUS_META[s].label}
-                  </button>
-                );
-              })}
+          <form onSubmit={handleSubmitSelfRsvp} className="mt-3 space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input
+                type="text"
+                required
+                value={selfName}
+                onChange={(e) => setSelfName(e.target.value)}
+                placeholder="你的名字 / 稱呼"
+                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              />
+              <input
+                type="text"
+                value={selfNote}
+                onChange={(e) => setSelfNote(e.target.value)}
+                placeholder="備註（例如：唔飲酒、8點半先到）"
+                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              />
             </div>
-            <button
-              type="submit"
-              className="rounded-xl bg-brand-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-700"
-            >
-              加入名單
-            </button>
-          </div>
-        </form>
-      </section>
+
+            {selfError ? (
+              <p className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+                {selfError}
+              </p>
+            ) : null}
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex gap-2">
+                {(['going', 'maybe', 'declined'] as RsvpStatus[]).map((s) => {
+                  const active = selfStatus === s;
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setSelfStatus(s)}
+                      className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ring-1 ${
+                        active
+                          ? STATUS_META[s].color
+                          : 'bg-white text-slate-500 ring-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {STATUS_META[s].label}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="submit"
+                className="rounded-xl bg-brand-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-700"
+              >
+                {selfSaved ? '已更新 ✓' : myRsvp ? '更新我的狀態' : '確認報名'}
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
 
       {/* 參加者名單 */}
       <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-bold text-slate-900">
-            參加者名單（{party.guests.length}）
+            參加者名單（{allGuests.length}）
           </h2>
           <div className="flex gap-2 text-xs font-medium">
             <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-emerald-700">
@@ -276,36 +463,60 @@ export function RsvpTab({ party, isAdmin, onUpdateParty, onUpdateGuests }: RsvpT
         </div>
 
         <div className="mt-4 divide-y divide-slate-100">
-          {party.guests.map((guest) => {
+          {allGuests.map((guest) => {
             const meta = STATUS_META[guest.status];
             const Icon = meta.icon;
+            const isOwnEntry = Boolean(currentUser && guest.id === currentUser.uid);
+            const canToggleStatus = isAdmin || isOwnEntry;
+
             return (
               <div key={guest.id} className="flex items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-slate-900">{guest.name}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="truncate text-sm font-semibold text-slate-900">{guest.name}</p>
+                    {isOwnEntry ? (
+                      <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-brand-600">
+                        你
+                      </span>
+                    ) : null}
+                  </div>
                   {guest.note ? (
                     <p className="truncate text-xs text-slate-500">{guest.note}</p>
                   ) : null}
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
-                  <button
-                    type="button"
-                    title="切換出席狀態"
-                    onClick={() => {
-                      const order: RsvpStatus[] = ['going', 'maybe', 'declined'];
-                      const next = order[(order.indexOf(guest.status) + 1) % order.length];
-                      handleChangeStatus(guest.id, next);
-                    }}
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${meta.color}`}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    {meta.label}
-                  </button>
+                  {canToggleStatus ? (
+                    <button
+                      type="button"
+                      title={isAdmin ? '切換出席狀態' : '切換自己的出席狀態'}
+                      onClick={() => {
+                        if (isAdmin) {
+                          const order: RsvpStatus[] = ['going', 'maybe', 'declined'];
+                          const next = order[(order.indexOf(guest.status) + 1) % order.length];
+                          onAdminChangeGuestStatus(guest.id, next);
+                        } else {
+                          handleToggleOwnStatus(guest);
+                        }
+                      }}
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 transition hover:opacity-85 ${meta.color}`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {meta.label}
+                    </button>
+                  ) : (
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${meta.color}`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {meta.label}
+                    </span>
+                  )}
+
                   {isAdmin ? (
                     <button
                       type="button"
                       aria-label="移除參加者"
-                      onClick={() => handleRemoveGuest(guest.id)}
+                      onClick={() => onAdminRemoveGuest(guest.id)}
                       className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-rose-600"
                     >
                       <Trash2 className="h-3.5 w-3.5" />

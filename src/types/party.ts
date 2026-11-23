@@ -2,6 +2,8 @@ export type RsvpStatus = 'going' | 'maybe' | 'declined';
 
 export interface Guest {
   id: string;
+  uid?: string;
+  email?: string;
   name: string;
   status: RsvpStatus;
   note?: string;
@@ -48,6 +50,7 @@ export interface Party {
   paymeLink?: string;
   fpsInfo?: string;
   guests: Guest[];
+  rsvps?: Record<string, Guest>; // 以 Firebase Auth UID 為 key，訪客只能新增或更新自己的記錄
   expenses: Expense[];
   settlementPayments: Record<string, SettlementPayment>;
   createdAt: string;

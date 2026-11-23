@@ -17,7 +17,7 @@ import type {
   PaymentMethod,
   SplitType,
 } from '../types/party';
-import { generateId } from '../lib/partyStore';
+import { generateId, getAllGuests } from '../lib/partyStore';
 import {
   buildWhatsAppSettlementText,
   calculateBalances,
@@ -47,15 +47,16 @@ const SPLIT_LABELS: Record<SplitType, string> = {
 };
 
 export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps) {
+  const allGuests = useMemo(() => getAllGuests(party), [party]);
   const activeGuests = useMemo(
-    () => party.guests.filter((g) => g.status !== 'declined'),
-    [party.guests]
+    () => allGuests.filter((g) => g.status !== 'declined'),
+    [allGuests]
   );
 
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<ExpenseCategory>('food');
-  const [paidBy, setPaidBy] = useState(party.guests[0]?.id ?? '');
+  const [paidBy, setPaidBy] = useState(allGuests[0]?.id ?? '');
   const [splitType, setSplitType] = useState<SplitType>('equal');
   const [selectedIds, setSelectedIds] = useState<string[]>(() =>
     activeGuests.map((g) => g.id)
@@ -75,8 +76,8 @@ export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps)
   );
 
   const balances = useMemo(
-    () => calculateBalances(party.guests, party.expenses),
-    [party.guests, party.expenses]
+    () => calculateBalances(allGuests, party.expenses),
+    [allGuests, party.expenses]
   );
 
   const transfers = useMemo(() => calculateMinTransfers(balances), [balances]);
@@ -95,7 +96,7 @@ export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps)
     e.preventDefault();
     setErrorMsg('');
     const numAmount = Number(amount);
-    const payerId = paidBy || party.guests[0]?.id;
+    const payerId = paidBy || allGuests[0]?.id;
 
     if (!title.trim()) {
       setErrorMsg('請輸入開支項目名稱');
@@ -238,7 +239,7 @@ export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps)
   }
 
   const guestNameById = (id: string) =>
-    party.guests.find((g) => g.id === id)?.name ?? '未知成員';
+    allGuests.find((g) => g.id === id)?.name ?? '未知成員';
 
   return (
     <div className="space-y-5">
@@ -443,11 +444,11 @@ export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps)
             <div>
               <label className="block text-xs font-semibold text-slate-600">誰先墊付？</label>
               <select
-                value={paidBy || party.guests[0]?.id || ''}
+                value={paidBy || allGuests[0]?.id || ''}
                 onChange={(e) => setPaidBy(e.target.value)}
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
               >
-                {party.guests.map((g) => (
+                {allGuests.map((g) => (
                   <option key={g.id} value={g.id}>
                     {g.name}
                   </option>
@@ -484,7 +485,7 @@ export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps)
               </label>
               <button
                 type="button"
-                onClick={() => setSelectedIds(party.guests.map((g) => g.id))}
+                onClick={() => setSelectedIds(allGuests.map((g) => g.id))}
                 className="text-[11px] font-semibold text-brand-600 hover:underline"
               >
                 全選
@@ -492,7 +493,7 @@ export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps)
             </div>
 
             <div className="mt-2 space-y-1.5">
-              {party.guests.map((g) => {
+              {allGuests.map((g) => {
                 const checked = selectedIds.includes(g.id);
                 return (
                   <div

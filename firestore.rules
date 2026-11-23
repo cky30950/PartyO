@@ -1,25 +1,41 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
     function isAdmin() {
-      return request.auth != null
+      return isSignedIn()
         && request.auth.token.email != null
         && request.auth.token.email.lower() == 'cky30950@gmail.com'
         && request.auth.token.email_verified == true;
     }
 
+    function isValidSelfRsvp() {
+      let uid = request.auth.uid;
+      let prevRsvps = resource.data.get('rsvps', {});
+      let nextRsvps = request.resource.data.rsvps;
+      return isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rsvps', 'updatedAt'])
+        && nextRsvps is map
+        && nextRsvps.diff(prevRsvps).affectedKeys().hasOnly([uid])
+        && uid in nextRsvps
+        && nextRsvps[uid] is map
+        && nextRsvps[uid].id == uid
+        && nextRsvps[uid].uid == uid
+        && nextRsvps[uid].status in ['going', 'maybe', 'declined'];
+    }
+
     match /parties/{partyId} {
-      // 持有高熵活動連結的訪客可檢視活動與費用紀錄
+      // 持有高熵活動連結的人可檢視活動與費用紀錄
       allow read: if partyId.size() >= 8;
 
       // 只有主辦人管理員可以建立或刪除活動
       allow create, delete: if isAdmin() && partyId.size() >= 8;
 
-      // 主辦人可修改任何欄位；一般訪客只可更新報名名單（guests）與 updatedAt
-      allow update: if partyId.size() >= 8 && (
-        isAdmin() ||
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['guests', 'updatedAt'])
-      );
+      // 主辦人可修改任何欄位；一般已登入 Google 帳號的訪客只可新增或更新自己的 rsvps[uid]
+      allow update: if partyId.size() >= 8 && (isAdmin() || isValidSelfRsvp());
     }
   }
 }

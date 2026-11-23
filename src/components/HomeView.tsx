@@ -9,7 +9,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import type { Party } from '../types/party';
-import { deleteParty, generateId, saveParty } from '../lib/partyStore';
+import { deleteParty, generateId, getAllGuests, saveParty } from '../lib/partyStore';
 import { formatPartyDateTime } from '../lib/calendar';
 import { PlaceAutocomplete } from './PlaceAutocomplete';
 
@@ -249,7 +249,7 @@ export function HomeView({
             <h3 className="px-1 text-sm font-bold text-slate-700">最近開啟過的派對</h3>
             <div className="space-y-2.5">
               {recentParties.map((p) => {
-                const goingCount = p.guests.filter((g) => g.status === 'going').length;
+                const goingCount = getAllGuests(p).filter((g) => g.status === 'going').length;
                 return (
                   <div
                     key={p.id}
