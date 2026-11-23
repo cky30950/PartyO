@@ -1,4 +1,11 @@
 import { initializeApp } from 'firebase/app';
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  type User,
+} from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -13,5 +20,26 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:986510230799:web:f603e67b605e71294f2a7a',
 };
 
+export const ADMIN_EMAIL = (
+  import.meta.env.VITE_ADMIN_EMAIL || 'cky30950@gmail.com'
+).trim().toLowerCase();
+
 export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+export const auth = getAuth(app);
+
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+export function isAdminUser(user: User | null): boolean {
+  return Boolean(user?.email && user.email.trim().toLowerCase() === ADMIN_EMAIL);
+}
+
+export async function signInWithGoogle(): Promise<User> {
+  const cred = await signInWithPopup(auth, googleProvider);
+  return cred.user;
+}
+
+export async function signOutUser(): Promise<void> {
+  await signOut(auth);
+}

@@ -6,7 +6,9 @@ import { PlaceAutocomplete } from './PlaceAutocomplete';
 
 interface RsvpTabProps {
   party: Party;
+  isAdmin: boolean;
   onUpdateParty: (updated: Party) => Promise<void>;
+  onUpdateGuests: (guests: Guest[]) => Promise<void>;
 }
 
 const STATUS_META: Record<
@@ -30,7 +32,7 @@ const STATUS_META: Record<
   },
 };
 
-export function RsvpTab({ party, onUpdateParty }: RsvpTabProps) {
+export function RsvpTab({ party, isAdmin, onUpdateParty, onUpdateGuests }: RsvpTabProps) {
   const [name, setName] = useState('');
   const [status, setStatus] = useState<RsvpStatus>('going');
   const [note, setNote] = useState('');
@@ -60,29 +62,23 @@ export function RsvpTab({ party, onUpdateParty }: RsvpTabProps) {
       updatedAt: new Date().toISOString(),
     };
 
-    await onUpdateParty({
-      ...party,
-      guests: [...party.guests, newGuest],
-    });
+    await onUpdateGuests([...party.guests, newGuest]);
     setName('');
     setNote('');
     setStatus('going');
   }
 
   async function handleChangeStatus(guestId: string, nextStatus: RsvpStatus) {
-    await onUpdateParty({
-      ...party,
-      guests: party.guests.map((g) =>
+    await onUpdateGuests(
+      party.guests.map((g) =>
         g.id === guestId ? { ...g, status: nextStatus, updatedAt: new Date().toISOString() } : g
-      ),
-    });
+      )
+    );
   }
 
   async function handleRemoveGuest(guestId: string) {
-    await onUpdateParty({
-      ...party,
-      guests: party.guests.filter((g) => g.id !== guestId),
-    });
+    if (!isAdmin) return;
+    await onUpdateGuests(party.guests.filter((g) => g.id !== guestId));
   }
 
   async function handleSaveInfo(e: FormEvent) {
@@ -105,7 +101,7 @@ export function RsvpTab({ party, onUpdateParty }: RsvpTabProps) {
       <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold text-slate-900">活動資料</h2>
-          {!editingInfo ? (
+          {isAdmin && !editingInfo ? (
             <button
               type="button"
               onClick={() => {
@@ -124,7 +120,7 @@ export function RsvpTab({ party, onUpdateParty }: RsvpTabProps) {
           ) : null}
         </div>
 
-        {editingInfo ? (
+        {isAdmin && editingInfo ? (
           <form onSubmit={handleSaveInfo} className="mt-3 space-y-3">
             <input
               type="text"
@@ -199,7 +195,8 @@ export function RsvpTab({ party, onUpdateParty }: RsvpTabProps) {
           </form>
         ) : (
           <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-600">
-            {party.description || '暫未填寫備註，可按右上角「編輯」補充。'}
+            {party.description ||
+              (isAdmin ? '暫未填寫備註，可按右上角「編輯」補充。' : '主辦人暫未填寫活動備註。')}
           </p>
         )}
       </section>
@@ -304,14 +301,16 @@ export function RsvpTab({ party, onUpdateParty }: RsvpTabProps) {
                     <Icon className="h-3.5 w-3.5" />
                     {meta.label}
                   </button>
-                  <button
-                    type="button"
-                    aria-label="移除參加者"
-                    onClick={() => handleRemoveGuest(guest.id)}
-                    className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-rose-600"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  {isAdmin ? (
+                    <button
+                      type="button"
+                      aria-label="移除參加者"
+                      onClick={() => handleRemoveGuest(guest.id)}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-rose-600"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
                 </div>
               </div>
             );

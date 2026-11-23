@@ -6,6 +6,7 @@ import {
   ArrowRight,
   Trash2,
   Cloud,
+  LogOut,
 } from 'lucide-react';
 import type { Party } from '../types/party';
 import { deleteParty, generateId, saveParty } from '../lib/partyStore';
@@ -14,6 +15,8 @@ import { PlaceAutocomplete } from './PlaceAutocomplete';
 
 interface HomeViewProps {
   recentParties: Party[];
+  adminEmail?: string;
+  onSignOut?: () => void;
   onOpenParty: (partyId: string) => void;
   onRefreshList: () => void;
 }
@@ -27,7 +30,13 @@ function getDefaultStartTime(): string {
   return `${yyyy}-${mm}-${dd}T19:00`;
 }
 
-export function HomeView({ recentParties, onOpenParty, onRefreshList }: HomeViewProps) {
+export function HomeView({
+  recentParties,
+  adminEmail,
+  onSignOut,
+  onOpenParty,
+  onRefreshList,
+}: HomeViewProps) {
   const [title, setTitle] = useState('');
   const [hostName, setHostName] = useState('');
   const [startTime, setStartTime] = useState(() => getDefaultStartTime());
@@ -89,12 +98,24 @@ export function HomeView({ recentParties, onOpenParty, onRefreshList }: HomeView
             <img src="./icon.svg" alt="PartyO" className="h-10 w-10 rounded-xl shadow-sm" />
             <div>
               <h1 className="text-xl font-bold tracking-tight text-slate-900">PartyO</h1>
-              <p className="text-xs text-slate-500">開局 · 日曆邀請 · AA 計費一條龍</p>
+              <p className="text-xs text-slate-500">開局 · 日曆邀請 · 費用分攤一條龍</p>
             </div>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800">
-            <Cloud className="h-3.5 w-3.5" /> 雲端即時同步
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800">
+              <Cloud className="h-3.5 w-3.5" /> 雲端即時同步
+            </span>
+            {onSignOut ? (
+              <button
+                type="button"
+                title={adminEmail ? `已登入：${adminEmail}` : '登出主辦人帳號'}
+                onClick={onSignOut}
+                className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-slate-900"
+              >
+                <LogOut className="h-3.5 w-3.5" /> 登出
+              </button>
+            ) : null}
+          </div>
         </div>
 
         <div className="mt-6 grid grid-cols-3 gap-2.5">
@@ -110,7 +131,7 @@ export function HomeView({ recentParties, onOpenParty, onRefreshList }: HomeView
           </div>
           <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200/70">
             <Wallet className="h-5 w-5 text-brand-600" />
-            <p className="mt-1.5 text-xs font-semibold text-slate-800">聰明 AA 拆帳</p>
+            <p className="mt-1.5 text-xs font-semibold text-slate-800">輕鬆費用分攤</p>
             <p className="mt-0.5 text-[11px] text-slate-500">最少轉帳 &amp; PayMe 追蹤</p>
           </div>
         </div>

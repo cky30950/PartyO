@@ -1,10 +1,25 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 派對以隨機高熵 ID 作為分享密鑰，開連結的朋友可直接檢視與更新 RSVP / 開支
-    // 正式上線如需要更嚴格權限，可改為要求 Firebase Anonymous Auth
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() == 'cky30950@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
     match /parties/{partyId} {
-      allow read, write: if partyId.size() >= 8;
+      // 持有高熵活動連結的訪客可檢視活動與費用紀錄
+      allow read: if partyId.size() >= 8;
+
+      // 只有主辦人管理員可以建立或刪除活動
+      allow create, delete: if isAdmin() && partyId.size() >= 8;
+
+      // 主辦人可修改任何欄位；一般訪客只可更新報名名單（guests）與 updatedAt
+      allow update: if partyId.size() >= 8 && (
+        isAdmin() ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['guests', 'updatedAt'])
+      );
     }
   }
 }

@@ -53,7 +53,7 @@ export function generateICS(party: Party, shareUrl = ''): string {
     party.description.trim(),
     !hasEndTime(party.endTime) ? '註：活動未指定結束時間' : '',
     party.hostName ? `搞手：${party.hostName}` : '',
-    shareUrl ? `派對詳情、報名及 AA 結算：${shareUrl}` : '',
+    shareUrl ? `派對詳情、報名及費用結算：${shareUrl}` : '',
   ].filter(Boolean);
 
   const lines = [
@@ -100,7 +100,7 @@ export function buildGoogleCalendarUrl(party: Party, shareUrl = ''): string {
     party.description.trim(),
     !hasEndTime(party.endTime) ? '註：活動未指定結束時間' : '',
     party.hostName ? `搞手：${party.hostName}` : '',
-    shareUrl ? `活動報名及 AA 拆帳頁面：${shareUrl}` : '',
+    shareUrl ? `活動報名及費用分攤頁面：${shareUrl}` : '',
   ].filter(Boolean);
 
   const params = new URLSearchParams({
@@ -172,7 +172,7 @@ export function buildWhatsAppInviteText(party: Party, shareUrl: string): string 
     fullLocation ? `🗺️ Google 地圖：${buildGoogleMapsUrl(mapQuery)}` : '',
     party.description ? `📝 備註：${party.description}` : '',
     '',
-    `👉 撳入嚟填名 RSVP 同睇 AA 數：`,
+    `👉 點擊填寫報名及查看費用明細：`,
     shareUrl,
     '',
     `🗓️ 一鍵加入 Google 日曆：`,

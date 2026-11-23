@@ -160,7 +160,7 @@ export function buildWhatsAppSettlementText(
 ): string {
   const total = party.expenses.reduce((sum, e) => sum + e.amount, 0);
   const lines: string[] = [
-    `💰 *${party.title} — AA 結算清單*`,
+    `💰 *${party.title} — 費用結算明細*`,
     `總開支：${formatMoney(total, party.currency)}（共 ${party.expenses.length} 筆）`,
     '',
   ];

@@ -27,6 +27,7 @@ import {
 
 interface ExpensesTabProps {
   party: Party;
+  isAdmin: boolean;
   onUpdateParty: (updated: Party) => Promise<void>;
 }
 
@@ -45,7 +46,7 @@ const SPLIT_LABELS: Record<SplitType, string> = {
   exact: '自訂金額',
 };
 
-export function ExpensesTab({ party, onUpdateParty }: ExpensesTabProps) {
+export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps) {
   const activeGuests = useMemo(
     () => party.guests.filter((g) => g.status !== 'declined'),
     [party.guests]
@@ -268,21 +269,27 @@ export function ExpensesTab({ party, onUpdateParty }: ExpensesTabProps) {
             <Wallet className="h-4 w-4 text-brand-600" />
             最少轉帳結算與收款追蹤
           </h2>
-          <button
-            type="button"
-            onClick={handleCopySummary}
-            className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
-          >
-            {copiedSummary ? (
-              <>
-                <Check className="h-3.5 w-3.5" /> 已複製 WhatsApp 結算
-              </>
-            ) : (
-              <>
-                <Copy className="h-3.5 w-3.5" /> 複製 WhatsApp 結算
-              </>
-            )}
-          </button>
+          {isAdmin ? (
+            <button
+              type="button"
+              onClick={handleCopySummary}
+              className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+            >
+              {copiedSummary ? (
+                <>
+                  <Check className="h-3.5 w-3.5" /> 已複製 WhatsApp 結算
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3.5 w-3.5" /> 複製 WhatsApp 結算
+                </>
+              )}
+            </button>
+          ) : (
+            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500">
+              僅供檢視
+            </span>
+          )}
         </div>
 
         {transfers.length === 0 ? (
@@ -334,34 +341,36 @@ export function ExpensesTab({ party, onUpdateParty }: ExpensesTabProps) {
                     </div>
                   </div>
 
-                  <div className="mt-2.5 flex flex-wrap gap-1.5">
-                    {(['PayMe', 'FPS', 'Cash'] as PaymentMethod[]).map((m) => {
-                      const active = isPaid && payment?.method === m;
-                      return (
+                  {isAdmin ? (
+                    <div className="mt-2.5 flex flex-wrap gap-1.5">
+                      {(['PayMe', 'FPS', 'Cash'] as PaymentMethod[]).map((m) => {
+                        const active = isPaid && payment?.method === m;
+                        return (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => handleMarkPayment(t.key, m)}
+                            className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ring-1 ${
+                              active
+                                ? 'bg-emerald-600 text-white ring-emerald-600'
+                                : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            {m === 'FPS' ? '轉數快 FPS 已付' : m === 'Cash' ? '現金已付' : 'PayMe 已付'}
+                          </button>
+                        );
+                      })}
+                      {isPaid ? (
                         <button
-                          key={m}
                           type="button"
-                          onClick={() => handleMarkPayment(t.key, m)}
-                          className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ring-1 ${
-                            active
-                              ? 'bg-emerald-600 text-white ring-emerald-600'
-                              : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-100'
-                          }`}
+                          onClick={() => handleMarkPayment(t.key)}
+                          className="rounded-lg px-2.5 py-1 text-[11px] font-medium text-slate-500 hover:bg-white"
                         >
-                          {m === 'FPS' ? '轉數快 FPS 已付' : m === 'Cash' ? '現金已付' : 'PayMe 已付'}
+                          重設未付
                         </button>
-                      );
-                    })}
-                    {isPaid ? (
-                      <button
-                        type="button"
-                        onClick={() => handleMarkPayment(t.key)}
-                        className="rounded-lg px-2.5 py-1 text-[11px] font-medium text-slate-500 hover:bg-white"
-                      >
-                        重設未付
-                      </button>
-                    ) : null}
-                  </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
@@ -389,8 +398,9 @@ export function ExpensesTab({ party, onUpdateParty }: ExpensesTabProps) {
         )}
       </section>
 
-      {/* 新增開支表單 */}
-      <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
+      {/* 新增開支表單（僅限主辦人） */}
+      {isAdmin ? (
+        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
         <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
           <Plus className="h-4 w-4 text-brand-600" />
           新增一筆開支
@@ -446,7 +456,7 @@ export function ExpensesTab({ party, onUpdateParty }: ExpensesTabProps) {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600">拆帳方式</label>
+              <label className="block text-xs font-semibold text-slate-600">分攤方式</label>
               <div className="mt-1 flex gap-1.5">
                 {(['equal', 'custom_shares', 'exact'] as SplitType[]).map((t) => (
                   <button
@@ -550,10 +560,11 @@ export function ExpensesTab({ party, onUpdateParty }: ExpensesTabProps) {
             type="submit"
             className="w-full rounded-2xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700"
           >
-            加入開支並即時重計 AA
+            新增開支並即時更新結算
           </button>
         </form>
       </section>
+      ) : null}
 
       {/* 開支明細列表 */}
       <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
@@ -582,14 +593,16 @@ export function ExpensesTab({ party, onUpdateParty }: ExpensesTabProps) {
                   <span className="text-sm font-bold text-slate-900">
                     {formatMoney(exp.amount, party.currency)}
                   </span>
-                  <button
-                    type="button"
-                    aria-label="刪除開支"
-                    onClick={() => handleDeleteExpense(exp.id)}
-                    className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-rose-600"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  {isAdmin ? (
+                    <button
+                      type="button"
+                      aria-label="刪除開支"
+                      onClick={() => handleDeleteExpense(exp.id)}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-rose-600"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
                 </div>
               </div>
             ))}
@@ -597,37 +610,62 @@ export function ExpensesTab({ party, onUpdateParty }: ExpensesTabProps) {
         )}
       </section>
 
-      {/* PayMe / 轉數快收款資料設定 */}
-      <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
-        <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
-          <CreditCard className="h-4 w-4 text-brand-600" />
-          PayMe / 轉數快收款資料（會自動附在結算訊息）
-        </h2>
-        <form onSubmit={handleSavePayInfo} className="mt-3 space-y-2.5">
-          <input
-            type="url"
-            value={paymeLink}
-            onChange={(e) => setPaymeLink(e.target.value)}
-            placeholder="PayMe 連結（例如：https://payme.hsbc/...）"
-            className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-xs outline-none focus:border-brand-500"
-          />
-          <input
-            type="text"
-            value={fpsInfo}
-            onChange={(e) => setFpsInfo(e.target.value)}
-            placeholder="轉數快 FPS ID / 備註"
-            className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-xs outline-none focus:border-brand-500"
-          />
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
-            >
-              {savedPayInfo ? '已儲存 ✓' : '儲存收款資料'}
-            </button>
+      {/* PayMe / 轉數快收款資料 */}
+      {isAdmin ? (
+        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
+          <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
+            <CreditCard className="h-4 w-4 text-brand-600" />
+            PayMe / 轉數快收款資料（會自動附在結算訊息）
+          </h2>
+          <form onSubmit={handleSavePayInfo} className="mt-3 space-y-2.5">
+            <input
+              type="url"
+              value={paymeLink}
+              onChange={(e) => setPaymeLink(e.target.value)}
+              placeholder="PayMe 連結（例如：https://payme.hsbc/...）"
+              className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-xs outline-none focus:border-brand-500"
+            />
+            <input
+              type="text"
+              value={fpsInfo}
+              onChange={(e) => setFpsInfo(e.target.value)}
+              placeholder="轉數快 FPS ID / 備註"
+              className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-xs outline-none focus:border-brand-500"
+            />
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+              >
+                {savedPayInfo ? '已儲存 ✓' : '儲存收款資料'}
+              </button>
+            </div>
+          </form>
+        </section>
+      ) : party.paymeLink || party.fpsInfo ? (
+        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
+          <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
+            <CreditCard className="h-4 w-4 text-brand-600" />
+            主辦人收款資料
+          </h2>
+          <div className="mt-2.5 space-y-1.5 text-xs text-slate-600">
+            {party.paymeLink ? (
+              <p>
+                PayMe：{' '}
+                <a
+                  href={party.paymeLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-brand-600 underline underline-offset-2 hover:text-brand-700"
+                >
+                  {party.paymeLink}
+                </a>
+              </p>
+            ) : null}
+            {party.fpsInfo ? <p>轉數快 FPS：{party.fpsInfo}</p> : null}
           </div>
-        </form>
-      </section>
+        </section>
+      ) : null}
     </div>
   );
 }

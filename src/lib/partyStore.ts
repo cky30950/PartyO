@@ -1,6 +1,6 @@
-import { deleteDoc, doc, getDoc, onSnapshot, setDoc } from 'firebase/firestore';
+import { deleteDoc, doc, getDoc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Party } from '../types/party';
+import type { Guest, Party } from '../types/party';
 
 const RECENT_CACHE_KEY = 'partyo_recent_parties_v1';
 
@@ -45,6 +45,18 @@ export async function saveParty(party: Party): Promise<void> {
   const map = readRecentMap();
   map[updated.id] = updated;
   writeRecentMap(map);
+}
+
+export async function updatePartyGuests(partyId: string, guests: Guest[]): Promise<void> {
+  const updatedAt = new Date().toISOString();
+  const ref = doc(db, 'parties', partyId);
+  await updateDoc(ref, { guests, updatedAt });
+
+  const map = readRecentMap();
+  if (map[partyId]) {
+    map[partyId] = { ...map[partyId], guests, updatedAt };
+    writeRecentMap(map);
+  }
 }
 
 export async function fetchPartyOnce(partyId: string): Promise<Party | null> {
