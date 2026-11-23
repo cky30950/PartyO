@@ -48,7 +48,9 @@ export interface Party {
   maxGuests?: number;
   currency: string;
   paymeLink?: string;
+  paymeQrImage?: string;
   fpsInfo?: string;
+  fpsQrImage?: string;
   guests: Guest[];
   rsvps?: Record<string, Guest>; // 以 Firebase Auth UID 為 key，訪客只能新增或更新自己的記錄
   expenses: Expense[];

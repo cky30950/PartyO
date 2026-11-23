@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import {
   Plus,
   Trash2,
@@ -9,6 +9,11 @@ import {
   Check,
   Wallet,
   CreditCard,
+  ExternalLink,
+  Edit3,
+  Upload,
+  X,
+  QrCode,
 } from 'lucide-react';
 import type {
   Expense,
@@ -18,6 +23,11 @@ import type {
   SplitType,
 } from '../types/party';
 import { generateId, getAllGuests } from '../lib/partyStore';
+import {
+  buildFpsHkqrPayload,
+  buildQrImageUrl,
+  compressQrImageFile,
+} from '../lib/paymentQr';
 import {
   buildWhatsAppSettlementText,
   calculateBalances,
@@ -46,6 +56,8 @@ const SPLIT_LABELS: Record<SplitType, string> = {
   exact: '自訂金額',
 };
 
+type ActiveQrModal = 'payme' | 'fps' | null;
+
 export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps) {
   const allGuests = useMemo(() => getAllGuests(party), [party]);
   const activeGuests = useMemo(
@@ -65,10 +77,36 @@ export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps)
   const [exactAmounts, setExactAmounts] = useState<Record<string, string>>({});
   const [errorMsg, setErrorMsg] = useState('');
 
+  // 收款資料與二維碼
+  const hasPayme = Boolean(party.paymeLink?.trim() || party.paymeQrImage);
+  const hasFps = Boolean(party.fpsInfo?.trim() || party.fpsQrImage);
+  const hasAnyPayInfo = hasPayme || hasFps;
+
+  const [editingPayInfo, setEditingPayInfo] = useState(false);
   const [paymeLink, setPaymeLink] = useState(party.paymeLink ?? '');
+  const [paymeQrImage, setPaymeQrImage] = useState(party.paymeQrImage ?? '');
   const [fpsInfo, setFpsInfo] = useState(party.fpsInfo ?? '');
+  const [fpsQrImage, setFpsQrImage] = useState(party.fpsQrImage ?? '');
+  const [qrUploadError, setQrUploadError] = useState('');
   const [savedPayInfo, setSavedPayInfo] = useState(false);
+  const [copiedFps, setCopiedFps] = useState(false);
+  const [activeQrModal, setActiveQrModal] = useState<ActiveQrModal>(null);
   const [copiedSummary, setCopiedSummary] = useState(false);
+
+  const paymeQrSrc = useMemo(() => {
+    if (party.paymeQrImage) return party.paymeQrImage;
+    if (party.paymeLink?.trim()) return buildQrImageUrl(party.paymeLink.trim());
+    return '';
+  }, [party.paymeQrImage, party.paymeLink]);
+
+  const fpsQrSrc = useMemo(() => {
+    if (party.fpsQrImage) return party.fpsQrImage;
+    if (party.fpsInfo?.trim()) {
+      const payload = buildFpsHkqrPayload(party.fpsInfo.trim());
+      if (payload) return buildQrImageUrl(payload);
+    }
+    return '';
+  }, [party.fpsQrImage, party.fpsInfo]);
 
   const totalSpent = useMemo(
     () => party.expenses.reduce((sum, e) => sum + e.amount, 0),
@@ -90,6 +128,38 @@ export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps)
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
+  }
+
+  async function handleQrImageUpload(
+    e: ChangeEvent<HTMLInputElement>,
+    target: 'payme' | 'fps'
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setQrUploadError('');
+    try {
+      const dataUrl = await compressQrImageFile(file);
+      if (target === 'payme') {
+        setPaymeQrImage(dataUrl);
+      } else {
+        setFpsQrImage(dataUrl);
+      }
+    } catch (err) {
+      setQrUploadError(err instanceof Error ? err.message : '圖片處理失敗');
+    } finally {
+      e.target.value = '';
+    }
+  }
+
+  async function handleCopyFps() {
+    if (!party.fpsInfo?.trim()) return;
+    try {
+      await navigator.clipboard.writeText(party.fpsInfo.trim());
+      setCopiedFps(true);
+      setTimeout(() => setCopiedFps(false), 2000);
+    } catch {
+      // Ignore clipboard failure
+    }
   }
 
   async function handleAddExpense(e: FormEvent) {
@@ -221,9 +291,12 @@ export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps)
     await onUpdateParty({
       ...party,
       paymeLink: paymeLink.trim(),
+      paymeQrImage: paymeQrImage,
       fpsInfo: fpsInfo.trim(),
+      fpsQrImage: fpsQrImage,
     });
     setSavedPayInfo(true);
+    setEditingPayInfo(false);
     setTimeout(() => setSavedPayInfo(false), 2000);
   }
 
@@ -243,6 +316,233 @@ export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps)
 
   return (
     <div className="space-y-5">
+      {/* 頂層：主辦人收款資料與可點擊二維碼（PayMe 及轉數快） */}
+      {hasAnyPayInfo || isAdmin ? (
+        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
+              <CreditCard className="h-4 w-4 text-brand-600" />
+              主辦人收款資料
+            </h2>
+            {isAdmin ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!editingPayInfo) {
+                    setPaymeLink(party.paymeLink ?? '');
+                    setPaymeQrImage(party.paymeQrImage ?? '');
+                    setFpsInfo(party.fpsInfo ?? '');
+                    setFpsQrImage(party.fpsQrImage ?? '');
+                    setQrUploadError('');
+                  }
+                  setEditingPayInfo((v) => !v);
+                }}
+                className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
+              >
+                <Edit3 className="h-3.5 w-3.5" />
+                {editingPayInfo ? '收起' : hasAnyPayInfo ? '編輯' : '設定收款資料'}
+              </button>
+            ) : null}
+          </div>
+
+          {savedPayInfo ? (
+            <p className="mt-2 text-xs font-medium text-emerald-600">收款資料已更新 ✓</p>
+          ) : null}
+
+          {hasAnyPayInfo && !editingPayInfo ? (
+            <div
+              className={`mt-3 grid gap-3 ${hasPayme && hasFps ? 'grid-cols-2' : 'grid-cols-1'}`}
+            >
+              {/* PayMe 二維碼卡片 */}
+              {hasPayme ? (
+                <div className="flex flex-col items-center rounded-2xl bg-rose-50/50 p-3.5 text-center ring-1 ring-rose-100">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-rose-100/80 px-2.5 py-0.5 text-[11px] font-bold text-rose-700">
+                    <QrCode className="h-3 w-3" /> PayMe
+                  </span>
+
+                  {paymeQrSrc ? (
+                    <button
+                      type="button"
+                      onClick={() => setActiveQrModal('payme')}
+                      title="點擊放大 PayMe 二維碼"
+                      className="group mt-2.5 overflow-hidden rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-200/80 transition hover:scale-[1.02] hover:ring-brand-300"
+                    >
+                      <img
+                        src={paymeQrSrc}
+                        alt="PayMe 收款二維碼"
+                        className="h-32 w-32 object-contain sm:h-36 sm:w-36"
+                      />
+                      <span className="mt-1 block text-[10px] font-medium text-slate-400 group-hover:text-brand-600">
+                        點擊放大二維碼
+                      </span>
+                    </button>
+                  ) : null}
+
+                  {party.paymeLink ? (
+                    <a
+                      href={party.paymeLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2.5 inline-flex w-full items-center justify-center gap-1 rounded-xl bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-700"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" /> 開啟 PayMe 轉帳
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {/* 轉數快 FPS 二維碼卡片 */}
+              {hasFps ? (
+                <div className="flex flex-col items-center rounded-2xl bg-indigo-50/50 p-3.5 text-center ring-1 ring-indigo-100">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100/80 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700">
+                    <QrCode className="h-3 w-3" /> 轉數快 FPS
+                  </span>
+
+                  {fpsQrSrc ? (
+                    <button
+                      type="button"
+                      onClick={() => setActiveQrModal('fps')}
+                      title="點擊放大轉數快二維碼"
+                      className="group mt-2.5 overflow-hidden rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-200/80 transition hover:scale-[1.02] hover:ring-indigo-300"
+                    >
+                      <img
+                        src={fpsQrSrc}
+                        alt="轉數快 FPS 收款二維碼"
+                        className="h-32 w-32 object-contain sm:h-36 sm:w-36"
+                      />
+                      <span className="mt-1 block text-[10px] font-medium text-slate-400 group-hover:text-indigo-600">
+                        點擊放大二維碼
+                      </span>
+                    </button>
+                  ) : null}
+
+                  {party.fpsInfo ? (
+                    <button
+                      type="button"
+                      onClick={handleCopyFps}
+                      className="mt-2.5 inline-flex w-full items-center justify-center gap-1 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-700"
+                    >
+                      {copiedFps ? (
+                        <>
+                          <Check className="h-3.5 w-3.5" /> 已複製號碼
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3.5 w-3.5" />
+                          <span className="truncate">複製：{party.fpsInfo}</span>
+                        </>
+                      )}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {!hasAnyPayInfo && !editingPayInfo && isAdmin ? (
+            <p className="mt-2 text-xs text-slate-500">
+              尚未設定 PayMe 或轉數快資料。設定後會在頂部自動顯示可點擊的收款二維碼，方便參加者即時轉帳。
+            </p>
+          ) : null}
+
+          {isAdmin && editingPayInfo ? (
+            <form onSubmit={handleSavePayInfo} className="mt-3 space-y-3 border-t border-slate-100 pt-3">
+              {/* PayMe 設定 */}
+              <div className="space-y-1.5 rounded-2xl bg-slate-50 p-3">
+                <label className="block text-xs font-semibold text-slate-700">PayMe 連結</label>
+                <input
+                  type="url"
+                  value={paymeLink}
+                  onChange={(e) => setPaymeLink(e.target.value)}
+                  placeholder="https://payme.hsbc/..."
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-brand-500"
+                />
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100">
+                    <Upload className="h-3 w-3" />
+                    {paymeQrImage ? '更換 PayMe 二維碼圖片' : '上傳自訂 PayMe 二維碼（選填）'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleQrImageUpload(e, 'payme')}
+                      className="hidden"
+                    />
+                  </label>
+                  {paymeQrImage ? (
+                    <button
+                      type="button"
+                      onClick={() => setPaymeQrImage('')}
+                      className="text-[11px] font-medium text-rose-600 hover:underline"
+                    >
+                      改用自動產生
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-slate-400">未上傳時會由連結自動產生</span>
+                  )}
+                </div>
+              </div>
+
+              {/* 轉數快設定 */}
+              <div className="space-y-1.5 rounded-2xl bg-slate-50 p-3">
+                <label className="block text-xs font-semibold text-slate-700">
+                  轉數快 FPS 電話／FPS ID／電郵
+                </label>
+                <input
+                  type="text"
+                  value={fpsInfo}
+                  onChange={(e) => setFpsInfo(e.target.value)}
+                  placeholder="例如：91234567 或 FPS ID"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-brand-500"
+                />
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100">
+                    <Upload className="h-3 w-3" />
+                    {fpsQrImage ? '更換轉數快二維碼圖片' : '上傳銀行轉數快二維碼（選填）'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleQrImageUpload(e, 'fps')}
+                      className="hidden"
+                    />
+                  </label>
+                  {fpsQrImage ? (
+                    <button
+                      type="button"
+                      onClick={() => setFpsQrImage('')}
+                      className="text-[11px] font-medium text-rose-600 hover:underline"
+                    >
+                      改用自動產生
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-slate-400">支援自動產生香港 HKQR 標準碼</span>
+                  )}
+                </div>
+              </div>
+
+              {qrUploadError ? (
+                <p className="text-xs font-medium text-rose-600">{qrUploadError}</p>
+              ) : null}
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingPayInfo(false)}
+                  className="rounded-xl px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
+                >
+                  取消
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+                >
+                  儲存收款資料
+                </button>
+              </div>
+            </form>
+          ) : null}
+        </section>
+      ) : null}
+
       {/* 總覽指標 */}
       <div className="grid grid-cols-3 gap-2.5">
         <div className="rounded-2xl bg-white p-3.5 shadow-sm ring-1 ring-slate-200/80">
@@ -402,169 +702,169 @@ export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps)
       {/* 新增開支表單（僅限主辦人） */}
       {isAdmin ? (
         <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
-        <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
-          <Plus className="h-4 w-4 text-brand-600" />
-          新增一筆開支
-        </h2>
+          <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
+            <Plus className="h-4 w-4 text-brand-600" />
+            新增一筆開支
+          </h2>
 
-        <form onSubmit={handleAddExpense} className="mt-3 space-y-3.5">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="項目名稱（例如：手工啤酒、Party Room 訂金）"
-              className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-            />
-            <div className="flex gap-2">
+          <form onSubmit={handleAddExpense} className="mt-3 space-y-3.5">
+            <div className="grid gap-3 sm:grid-cols-2">
               <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder={`金額 (${party.currency})`}
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="項目名稱（例如：手工啤酒、Party Room 訂金）"
                 className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
               />
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
-                className="rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-xs font-medium text-slate-700"
-              >
-                {Object.entries(CATEGORY_LABELS).map(([k, label]) => (
-                  <option key={k} value={k}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600">誰先墊付？</label>
-              <select
-                value={paidBy || allGuests[0]?.id || ''}
-                onChange={(e) => setPaidBy(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-              >
-                {allGuests.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-600">分攤方式</label>
-              <div className="mt-1 flex gap-1.5">
-                {(['equal', 'custom_shares', 'exact'] as SplitType[]).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setSplitType(t)}
-                    className={`flex-1 rounded-xl px-2 py-2 text-xs font-semibold transition ring-1 ${
-                      splitType === t
-                        ? 'bg-brand-600 text-white ring-brand-600'
-                        : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    {SPLIT_LABELS[t]}
-                  </button>
-                ))}
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder={`金額 (${party.currency})`}
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                />
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
+                  className="rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-xs font-medium text-slate-700"
+                >
+                  {Object.entries(CATEGORY_LABELS).map(([k, label]) => (
+                    <option key={k} value={k}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
-          </div>
 
-          {/* 選擇分攤成員（支援剔除不飲酒／遲到者） */}
-          <div>
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-slate-600">
-                分攤成員（可剔除唔飲酒／遲到人士）
-              </label>
-              <button
-                type="button"
-                onClick={() => setSelectedIds(allGuests.map((g) => g.id))}
-                className="text-[11px] font-semibold text-brand-600 hover:underline"
-              >
-                全選
-              </button>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600">誰先墊付？</label>
+                <select
+                  value={paidBy || allGuests[0]?.id || ''}
+                  onChange={(e) => setPaidBy(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                >
+                  {allGuests.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600">分攤方式</label>
+                <div className="mt-1 flex gap-1.5">
+                  {(['equal', 'custom_shares', 'exact'] as SplitType[]).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setSplitType(t)}
+                      className={`flex-1 rounded-xl px-2 py-2 text-xs font-semibold transition ring-1 ${
+                        splitType === t
+                          ? 'bg-brand-600 text-white ring-brand-600'
+                          : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {SPLIT_LABELS[t]}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            <div className="mt-2 space-y-1.5">
-              {allGuests.map((g) => {
-                const checked = selectedIds.includes(g.id);
-                return (
-                  <div
-                    key={g.id}
-                    className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-xs ring-1 transition ${
-                      checked
-                        ? 'bg-rose-50/50 ring-brand-200'
-                        : 'bg-slate-50 text-slate-400 ring-slate-200/70'
-                    }`}
-                  >
-                    <label className="flex flex-1 cursor-pointer items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleParticipant(g.id)}
-                        className="h-4 w-4 accent-brand-600"
-                      />
-                      <span className="font-medium text-slate-800">{g.name}</span>
-                      {g.note ? (
-                        <span className="truncate text-[11px] text-slate-400">({g.note})</span>
-                      ) : null}
-                    </label>
+            {/* 選擇分攤成員（支援剔除不飲酒／遲到者） */}
+            <div>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-600">
+                  分攤成員（可剔除唔飲酒／遲到人士）
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setSelectedIds(allGuests.map((g) => g.id))}
+                  className="text-[11px] font-semibold text-brand-600 hover:underline"
+                >
+                  全選
+                </button>
+              </div>
 
-                    {checked && splitType === 'custom_shares' && (
-                      <div className="flex items-center gap-1">
+              <div className="mt-2 space-y-1.5">
+                {allGuests.map((g) => {
+                  const checked = selectedIds.includes(g.id);
+                  return (
+                    <div
+                      key={g.id}
+                      className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-xs ring-1 transition ${
+                        checked
+                          ? 'bg-rose-50/50 ring-brand-200'
+                          : 'bg-slate-50 text-slate-400 ring-slate-200/70'
+                      }`}
+                    >
+                      <label className="flex flex-1 cursor-pointer items-center gap-2">
                         <input
-                          type="number"
-                          step="0.5"
-                          min="0"
-                          value={customShares[g.id] ?? '1'}
-                          onChange={(e) =>
-                            setCustomShares((prev) => ({ ...prev, [g.id]: e.target.value }))
-                          }
-                          className="w-16 rounded-lg border border-slate-200 bg-white px-2 py-1 text-right text-xs text-slate-900"
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleParticipant(g.id)}
+                          className="h-4 w-4 accent-brand-600"
                         />
-                        <span className="text-[11px] text-slate-500">份</span>
-                      </div>
-                    )}
+                        <span className="font-medium text-slate-800">{g.name}</span>
+                        {g.note ? (
+                          <span className="truncate text-[11px] text-slate-400">({g.note})</span>
+                        ) : null}
+                      </label>
 
-                    {checked && splitType === 'exact' && (
-                      <div className="flex items-center gap-1">
-                        <span className="text-[11px] text-slate-500">{party.currency}</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={exactAmounts[g.id] ?? ''}
-                          onChange={(e) =>
-                            setExactAmounts((prev) => ({ ...prev, [g.id]: e.target.value }))
-                          }
-                          placeholder="0"
-                          className="w-20 rounded-lg border border-slate-200 bg-white px-2 py-1 text-right text-xs text-slate-900"
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                      {checked && splitType === 'custom_shares' && (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            step="0.5"
+                            min="0"
+                            value={customShares[g.id] ?? '1'}
+                            onChange={(e) =>
+                              setCustomShares((prev) => ({ ...prev, [g.id]: e.target.value }))
+                            }
+                            className="w-16 rounded-lg border border-slate-200 bg-white px-2 py-1 text-right text-xs text-slate-900"
+                          />
+                          <span className="text-[11px] text-slate-500">份</span>
+                        </div>
+                      )}
+
+                      {checked && splitType === 'exact' && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-[11px] text-slate-500">{party.currency}</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={exactAmounts[g.id] ?? ''}
+                            onChange={(e) =>
+                              setExactAmounts((prev) => ({ ...prev, [g.id]: e.target.value }))
+                            }
+                            placeholder="0"
+                            className="w-20 rounded-lg border border-slate-200 bg-white px-2 py-1 text-right text-xs text-slate-900"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
 
-          {errorMsg ? <p className="text-xs font-medium text-rose-600">{errorMsg}</p> : null}
+            {errorMsg ? <p className="text-xs font-medium text-rose-600">{errorMsg}</p> : null}
 
-          <button
-            type="submit"
-            className="w-full rounded-2xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700"
-          >
-            新增開支並即時更新結算
-          </button>
-        </form>
-      </section>
+            <button
+              type="submit"
+              className="w-full rounded-2xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700"
+            >
+              新增開支並即時更新結算
+            </button>
+          </form>
+        </section>
       ) : null}
 
       {/* 開支明細列表 */}
@@ -611,61 +911,85 @@ export function ExpensesTab({ party, isAdmin, onUpdateParty }: ExpensesTabProps)
         )}
       </section>
 
-      {/* PayMe / 轉數快收款資料 */}
-      {isAdmin ? (
-        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
-          <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
-            <CreditCard className="h-4 w-4 text-brand-600" />
-            PayMe / 轉數快收款資料（會自動附在結算訊息）
-          </h2>
-          <form onSubmit={handleSavePayInfo} className="mt-3 space-y-2.5">
-            <input
-              type="url"
-              value={paymeLink}
-              onChange={(e) => setPaymeLink(e.target.value)}
-              placeholder="PayMe 連結（例如：https://payme.hsbc/...）"
-              className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-xs outline-none focus:border-brand-500"
-            />
-            <input
-              type="text"
-              value={fpsInfo}
-              onChange={(e) => setFpsInfo(e.target.value)}
-              placeholder="轉數快 FPS ID / 備註"
-              className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-xs outline-none focus:border-brand-500"
-            />
-            <div className="flex justify-end">
+      {/* 放大二維碼彈窗 */}
+      {activeQrModal ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setActiveQrModal(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-xs rounded-3xl bg-white p-6 text-center shadow-xl"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900">
+                {activeQrModal === 'payme' ? 'PayMe 收款二維碼' : '轉數快 FPS 收款二維碼'}
+              </h3>
               <button
-                type="submit"
-                className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+                type="button"
+                aria-label="關閉"
+                onClick={() => setActiveQrModal(null)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
               >
-                {savedPayInfo ? '已儲存 ✓' : '儲存收款資料'}
+                <X className="h-4 w-4" />
               </button>
             </div>
-          </form>
-        </section>
-      ) : party.paymeLink || party.fpsInfo ? (
-        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
-          <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
-            <CreditCard className="h-4 w-4 text-brand-600" />
-            主辦人收款資料
-          </h2>
-          <div className="mt-2.5 space-y-1.5 text-xs text-slate-600">
-            {party.paymeLink ? (
-              <p>
-                PayMe：{' '}
+
+            <div className="mt-4 flex justify-center rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200/70">
+              <img
+                src={activeQrModal === 'payme' ? paymeQrSrc : fpsQrSrc}
+                alt={activeQrModal === 'payme' ? 'PayMe 收款二維碼' : '轉數快 FPS 收款二維碼'}
+                className="h-56 w-56 object-contain"
+              />
+            </div>
+
+            <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+              可直接掃描，或長按／截圖儲存二維碼後於{' '}
+              {activeQrModal === 'payme' ? 'PayMe' : '銀行 App'} 匯入付款。
+            </p>
+
+            <div className="mt-4 space-y-2">
+              {activeQrModal === 'payme' && party.paymeLink ? (
                 <a
                   href={party.paymeLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-medium text-brand-600 underline underline-offset-2 hover:text-brand-700"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-brand-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-brand-700"
                 >
-                  {party.paymeLink}
+                  <ExternalLink className="h-4 w-4" /> 直接開啟 PayMe 付款
                 </a>
-              </p>
-            ) : null}
-            {party.fpsInfo ? <p>轉數快 FPS：{party.fpsInfo}</p> : null}
+              ) : null}
+
+              {activeQrModal === 'fps' && party.fpsInfo ? (
+                <button
+                  type="button"
+                  onClick={handleCopyFps}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-indigo-700"
+                >
+                  {copiedFps ? (
+                    <>
+                      <Check className="h-4 w-4" /> 已複製轉數快號碼
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4" /> 複製轉數快：{party.fpsInfo}
+                    </>
+                  )}
+                </button>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={() => setActiveQrModal(null)}
+                className="w-full rounded-2xl bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+              >
+                關閉
+              </button>
+            </div>
           </div>
-        </section>
+        </div>
       ) : null}
     </div>
   );
