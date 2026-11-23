@@ -204,17 +204,19 @@ export function HomeView({
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-rose-50/70 via-slate-50 to-slate-100 pb-16">
-      <header className="mx-auto max-w-2xl px-4 pt-8 pb-6">
-        <div className="flex items-center justify-between gap-2">
+      <header className="mx-auto max-w-2xl px-4 pt-6 pb-6">
+        <div className="rpg-wood-bar flex flex-wrap items-center justify-between gap-2 rounded-md px-4 py-3 text-[#FFF9EB]">
           <div className="flex items-center gap-2.5">
-            <img src="./icon.svg" alt="PartyO" className="h-10 w-10 rounded-xl shadow-sm" />
+            <img src="./icon.svg" alt="PartyO" className="h-10 w-10" />
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900">PartyO</h1>
-              <p className="text-xs text-slate-500">開局 · 日曆邀請 · 費用分攤一條龍</p>
+              <h1 className="font-pixel text-lg font-bold tracking-wider text-[#F7C948]">
+                PartyO
+              </h1>
+              <p className="text-[11px] text-[#F3E7CC]">冒險者酒館 · 開局 · 日曆邀請 · 費用分攤</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800">
+            <span className="inline-flex items-center gap-1.5 rounded bg-[#2E5A3B] px-2.5 py-1 text-[11px] font-medium text-[#DFF5E1] ring-1 ring-[#F7C948]/40">
               <Cloud className="h-3.5 w-3.5" /> 線上即時同步中
             </span>
             {currentUser && onSignOut ? (
@@ -223,7 +225,7 @@ export function HomeView({
                 disabled={authBusy}
                 title={currentUser.email ? `已登入：${currentUser.email}` : '登出帳號'}
                 onClick={onSignOut}
-                className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-60"
+                className="inline-flex items-center gap-1 rounded bg-[#FFF9EB] px-2.5 py-1 text-xs font-semibold text-[#2F1B0E] ring-1 ring-[#2F1B0E] transition hover:bg-[#F7C948] disabled:opacity-60"
               >
                 <LogOut className="h-3.5 w-3.5" /> 登出
               </button>
@@ -232,7 +234,7 @@ export function HomeView({
                 type="button"
                 disabled={authBusy}
                 onClick={onSignIn}
-                className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-60"
+                className="inline-flex items-center gap-1 rounded bg-[#F7C948] px-2.5 py-1 text-xs font-bold text-[#2F1B0E] ring-1 ring-[#2F1B0E] transition hover:bg-[#FCE07A] disabled:opacity-60"
               >
                 <LogIn className="h-3.5 w-3.5" /> {authBusy ? '登入中...' : 'Google 登入'}
               </button>

@@ -148,7 +148,7 @@ export function PartyDashboard({
 
   return (
     <div className="min-h-screen bg-slate-50 pb-16">
-      <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b-[3px] border-[#4A2E1B] bg-[#FFF9EB] shadow-[0_4px_0_rgba(59,35,20,0.18)]">
         <div className="mx-auto max-w-2xl px-4 py-3">
           <div className="flex items-center justify-between gap-2">
             {onBack ? (

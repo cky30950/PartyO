@@ -3,8 +3,210 @@
 @tailwind utilities;
 
 @layer base {
-  html {
-    font-family: -apple-system, BlinkMacSystemFont, "PingFang HK", "Noto Sans TC", "Segoe UI", Roboto, sans-serif;
-    -webkit-tap-highlight-color: transparent;
+  :root {
+    --rpg-bg: #f3e7cc;
+    --rpg-paper: #fff9eb;
+    --rpg-paper-deep: #f7ebd1;
+    --rpg-wood: #5c3822;
+    --rpg-wood-dark: #3b2314;
+    --rpg-border: #4a2e1b;
+    --rpg-gold: #f7c948;
+    --rpg-ink: #2f1b0e;
+    --rpg-ink-muted: #6b4c35;
   }
+
+  html {
+    font-family: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "PingFang HK", "Segoe UI", sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    background-color: var(--rpg-bg);
+    color: var(--rpg-ink);
+  }
+
+  /* 16-bit 像素點陣標題 */
+  h1, h2, h3 {
+    font-family: "Silkscreen", "DotGothic16", "Noto Sans TC", sans-serif;
+    letter-spacing: 0.02em;
+  }
+
+  /* 羊皮紙與像素網點背景 */
+  .rpg-tavern-bg {
+    background-color: var(--rpg-bg);
+    background-image:
+      radial-gradient(rgba(92, 56, 34, 0.09) 1px, transparent 1px),
+      radial-gradient(rgba(92, 56, 34, 0.05) 1px, var(--rpg-bg) 1px);
+    background-size: 16px 16px;
+    background-position: 0 0, 8px 8px;
+  }
+}
+
+/* ===== 復古 16-bit 冒險者酒館全域視覺改造 ===== */
+
+/* 1. 統一將冷灰色底與漸層轉為溫暖羊皮紙與酒館背景 */
+.bg-slate-50,
+.bg-gradient-to-b {
+  background-color: #f3e7cc !important;
+  background-image:
+    radial-gradient(rgba(92, 56, 34, 0.08) 1px, transparent 1px),
+    radial-gradient(rgba(92, 56, 34, 0.04) 1px, #f3e7cc 1px) !important;
+  background-size: 16px 16px !important;
+  background-position: 0 0, 8px 8px !important;
+}
+
+.bg-slate-100 {
+  background-color: #ead9b7 !important;
+}
+
+.bg-slate-50\/80 {
+  background-color: #fbf2dd !important;
+}
+
+.bg-white,
+.bg-white\/90,
+.bg-white\/80 {
+  background-color: #fff9eb !important;
+}
+
+/* 2. 深褐色墨水字體覆蓋原本冷灰字色 */
+.text-slate-900,
+.text-slate-800 {
+  color: #2f1b0e !important;
+}
+
+.text-slate-700,
+.text-slate-600 {
+  color: #593b25 !important;
+}
+
+.text-slate-500,
+.text-slate-400 {
+  color: #826146 !important;
+}
+
+/* 3. 16-bit 羊皮紙捲軸卡片（木色粗像素框 + 硬邊陰影 + 內高光） */
+section.rounded-3xl,
+div.rounded-3xl {
+  border-radius: 6px !important;
+  border: 2px solid #4a2e1b !important;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 253, 245, 0.9),
+    inset 0 -2px 0 rgba(196, 164, 118, 0.35),
+    4px 4px 0 #3b2314 !important;
+}
+
+div.rounded-2xl.shadow-sm,
+a.rounded-2xl,
+button.rounded-2xl {
+  border-radius: 4px !important;
+}
+
+div.rounded-2xl.shadow-sm {
+  border: 2px solid #5c3822 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 253, 245, 0.85),
+    3px 3px 0 #3b2314 !important;
+}
+
+/* 4. 實體 16-bit 按鈕按壓回饋 */
+button.bg-brand-600,
+a.bg-brand-600,
+button.bg-emerald-600,
+a.bg-emerald-600,
+button.bg-indigo-600,
+a.bg-indigo-600,
+button.bg-slate-900,
+a.bg-slate-900,
+button.bg-amber-600 {
+  border-radius: 4px !important;
+  border: 2px solid #2f1b0e !important;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.22),
+    3px 3px 0 #2f1b0e !important;
+  transition: transform 0.06s ease, box-shadow 0.06s ease !important;
+}
+
+button.bg-brand-600:active,
+a.bg-brand-600:active,
+button.bg-emerald-600:active,
+a.bg-emerald-600:active,
+button.bg-indigo-600:active,
+a.bg-indigo-600:active,
+button.bg-slate-900:active,
+a.bg-slate-900:active,
+button.bg-amber-600:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 #2f1b0e !important;
+}
+
+/* 5. 輸入框與下拉選單：古書羊皮紙輸入格 */
+input[type="text"],
+input[type="number"],
+input[type="url"],
+input[type="datetime-local"],
+textarea,
+select {
+  border-radius: 4px !important;
+  border: 2px solid #8a6240 !important;
+  background-color: #fffdf7 !important;
+  color: #2f1b0e !important;
+  box-shadow: inset 2px 2px 0 rgba(92, 56, 34, 0.08);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: #b83525 !important;
+  box-shadow: 0 0 0 2px rgba(247, 201, 72, 0.55) !important;
+}
+
+/* 6. 酒館深木紋頂部招牌列 */
+.rpg-wood-bar {
+  background: linear-gradient(180deg, #6e4226 0%, #56321c 100%) !important;
+  border-bottom: 3px solid #2f1b0e !important;
+  box-shadow:
+    inset 0 2px 0 rgba(247, 201, 72, 0.25),
+    0 4px 0 rgba(47, 27, 14, 0.25) !important;
+}
+
+/* 7. 分頁指令列（JRPG / 16-bit 選單列） */
+nav.rounded-2xl {
+  border-radius: 4px !important;
+  border: 2px solid #4a2e1b !important;
+  background-color: #e4cfa7 !important;
+  box-shadow: inset 2px 2px 0 rgba(59, 35, 20, 0.14);
+}
+
+nav.rounded-2xl button {
+  border-radius: 3px !important;
+}
+
+nav.rounded-2xl button.shadow-sm {
+  border: 2px solid #4a2e1b !important;
+  background-color: #fff9eb !important;
+  box-shadow: 2px 2px 0 #3b2314 !important;
+}
+
+/* 8. 像素徽章與分割線 */
+.divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e5d2ae !important;
+}
+
+.border-slate-100,
+.border-slate-200,
+.border-slate-200\/80 {
+  border-color: #d6bc8e !important;
+}
+
+.ring-slate-200,
+.ring-slate-200\/80,
+.ring-slate-200\/70 {
+  --tw-ring-color: #b89464 !important;
+}
+
+/* 像素圖示銳利渲染 */
+img[src$="icon.svg"] {
+  image-rendering: pixelated;
+  border-radius: 4px !important;
+  border: 2px solid #2f1b0e;
+  box-shadow: 2px 2px 0 #2f1b0e;
 }
