@@ -35,6 +35,7 @@ import {
   isPartyEnded,
 } from '../lib/calendar';
 import { deleteParty, getPendingRsvps } from '../lib/partyStore';
+import { THEME_LIST } from '../lib/themes';
 import { RsvpTab } from './RsvpTab';
 import { CalendarTab } from './CalendarTab';
 import { ExpensesTab } from './ExpensesTab';
@@ -340,7 +341,11 @@ export function PartyDashboard({
       <main className="mx-auto max-w-2xl px-4 pt-4">
         {isAdmin ? (
           <div className="mb-4">
-            <ThemeSwitcher theme={appTheme} onChangeTheme={onChangeTheme} />
+            <ThemeSwitcher
+              theme={appTheme}
+              label={`此活動專屬主題（${THEME_LIST.length} 款可選）`}
+              onChangeTheme={onChangeTheme}
+            />
           </div>
         ) : null}
 

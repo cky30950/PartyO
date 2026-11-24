@@ -3,512 +3,212 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --t-bg: #f3e7cc;
+    --t-bg-dot1: rgba(92, 56, 34, 0.09);
+    --t-bg-dot2: rgba(92, 56, 34, 0.04);
+    --t-surface: #fff9eb;
+    --t-surface-subtle: #fbf2dd;
+    --t-surface-muted: #ead9b7;
+    --t-ink: #2f1b0e;
+    --t-ink-2: #593b25;
+    --t-ink-muted: #826146;
+    --t-heading: #2f1b0e;
+    --t-border: #4a2e1b;
+    --t-border-soft: #d6bc8e;
+    --t-shadow: #3b2314;
+    --t-bar-from: #6e4226;
+    --t-bar-to: #56321c;
+    --t-bar-text: #f7c948;
+    --t-bar-sub: #f3e7cc;
+    --t-accent: #b83525;
+    --t-accent-hover: #932619;
+    --t-accent-text: #ffffff;
+    --t-nav-bg: #e4cfa7;
+    --t-nav-active-bg: #fff9eb;
+    --t-nav-active-border: #4a2e1b;
+    --t-nav-active-text: #b83525;
+    --t-input-bg: #fffdf7;
+    --t-input-border: #8a6240;
+    --t-card-radius: 6px;
+    --t-btn-radius: 4px;
+    --t-badge-bg: #5c3822;
+    --t-badge-text: #f7c948;
+  }
+
   html {
     font-family: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "PingFang HK", "Segoe UI", sans-serif;
     -webkit-tap-highlight-color: transparent;
+    background-color: var(--t-bg);
+    color: var(--t-ink);
     transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   h1, h2, h3 {
     font-family: "Silkscreen", "DotGothic16", "Noto Sans TC", sans-serif;
     letter-spacing: 0.02em;
+    color: var(--t-heading);
   }
 }
 
-/* 共用像素圖示銳利渲染 */
+/* 像素圖示銳利渲染 */
 img[src$="icon.svg"] {
   image-rendering: pixelated;
   border-radius: 4px !important;
-  border: 2px solid #2f1b0e;
-  box-shadow: 2px 2px 0 #2f1b0e;
+  border: 2px solid var(--t-border);
+  box-shadow: 2px 2px 0 var(--t-shadow);
 }
 
 /* ==========================================================================
-   主題 1：復古 16-bit 羊皮紙風格 (tavern - 預設)
+   23 款 2D RPG 主題統一 CSS 變數引擎
    ========================================================================== */
-:root,
-:root[data-theme="tavern"] {
-  background-color: #f3e7cc;
-  color: #2f1b0e;
-}
 
-:root[data-theme="tavern"] .rpg-tavern-bg,
-:root:not([data-theme]) .rpg-tavern-bg,
-:root[data-theme="tavern"] .bg-slate-50,
-:root:not([data-theme]) .bg-slate-50,
-:root[data-theme="tavern"] .bg-gradient-to-b,
-:root:not([data-theme]) .bg-gradient-to-b {
-  background-color: #f3e7cc !important;
+/* 背景與網點底紋 */
+.rpg-tavern-bg,
+.bg-slate-50,
+.bg-gradient-to-b {
+  background-color: var(--t-bg) !important;
   background-image:
-    radial-gradient(rgba(92, 56, 34, 0.08) 1px, transparent 1px),
-    radial-gradient(rgba(92, 56, 34, 0.04) 1px, #f3e7cc 1px) !important;
-  background-size: 16px 16px !important;
-  background-position: 0 0, 8px 8px !important;
-}
-
-:root[data-theme="tavern"] .bg-slate-100,
-:root:not([data-theme]) .bg-slate-100 {
-  background-color: #ead9b7 !important;
-}
-
-:root[data-theme="tavern"] .bg-slate-50\/80,
-:root:not([data-theme]) .bg-slate-50\/80 {
-  background-color: #fbf2dd !important;
-}
-
-:root[data-theme="tavern"] .bg-white,
-:root:not([data-theme]) .bg-white,
-:root[data-theme="tavern"] .bg-white\/90,
-:root:not([data-theme]) .bg-white\/90,
-:root[data-theme="tavern"] .bg-white\/80,
-:root:not([data-theme]) .bg-white\/80 {
-  background-color: #fff9eb !important;
-}
-
-:root[data-theme="tavern"] .text-slate-900,
-:root:not([data-theme]) .text-slate-900,
-:root[data-theme="tavern"] .text-slate-800,
-:root:not([data-theme]) .text-slate-800 {
-  color: #2f1b0e !important;
-}
-
-:root[data-theme="tavern"] .text-slate-700,
-:root:not([data-theme]) .text-slate-700,
-:root[data-theme="tavern"] .text-slate-600,
-:root:not([data-theme]) .text-slate-600 {
-  color: #593b25 !important;
-}
-
-:root[data-theme="tavern"] .text-slate-500,
-:root:not([data-theme]) .text-slate-500,
-:root[data-theme="tavern"] .text-slate-400,
-:root:not([data-theme]) .text-slate-400 {
-  color: #826146 !important;
-}
-
-:root[data-theme="tavern"] section.rounded-3xl,
-:root:not([data-theme]) section.rounded-3xl,
-:root[data-theme="tavern"] div.rounded-3xl,
-:root:not([data-theme]) div.rounded-3xl {
-  border-radius: 6px !important;
-  border: 2px solid #4a2e1b !important;
-  box-shadow:
-    inset 0 2px 0 rgba(255, 253, 245, 0.9),
-    inset 0 -2px 0 rgba(196, 164, 118, 0.35),
-    4px 4px 0 #3b2314 !important;
-}
-
-:root[data-theme="tavern"] div.rounded-2xl.shadow-sm,
-:root:not([data-theme]) div.rounded-2xl.shadow-sm {
-  border-radius: 4px !important;
-  border: 2px solid #5c3822 !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 253, 245, 0.85),
-    3px 3px 0 #3b2314 !important;
-}
-
-:root[data-theme="tavern"] .rpg-wood-bar,
-:root:not([data-theme]) .rpg-wood-bar {
-  background: linear-gradient(180deg, #6e4226 0%, #56321c 100%) !important;
-  border: 2px solid #2f1b0e !important;
-  box-shadow:
-    inset 0 2px 0 rgba(247, 201, 72, 0.25),
-    4px 4px 0 rgba(47, 27, 14, 0.4) !important;
-}
-
-:root[data-theme="tavern"] header.sticky,
-:root:not([data-theme]) header.sticky {
-  background-color: #fff9eb !important;
-  border-bottom: 3px solid #4a2e1b !important;
-}
-
-:root[data-theme="tavern"] nav.rounded-2xl,
-:root:not([data-theme]) nav.rounded-2xl {
-  border-radius: 4px !important;
-  border: 2px solid #4a2e1b !important;
-  background-color: #e4cfa7 !important;
-}
-
-:root[data-theme="tavern"] nav.rounded-2xl button.shadow-sm,
-:root:not([data-theme]) nav.rounded-2xl button.shadow-sm {
-  border: 2px solid #4a2e1b !important;
-  background-color: #fff9eb !important;
-  box-shadow: 2px 2px 0 #3b2314 !important;
-}
-
-:root[data-theme="tavern"] input[type="text"],
-:root:not([data-theme]) input[type="text"],
-:root[data-theme="tavern"] input[type="number"],
-:root:not([data-theme]) input[type="number"],
-:root[data-theme="tavern"] input[type="url"],
-:root:not([data-theme]) input[type="url"],
-:root[data-theme="tavern"] input[type="datetime-local"],
-:root:not([data-theme]) input[type="datetime-local"],
-:root[data-theme="tavern"] textarea,
-:root:not([data-theme]) textarea,
-:root[data-theme="tavern"] select,
-:root:not([data-theme]) select {
-  border-radius: 4px !important;
-  border: 2px solid #8a6240 !important;
-  background-color: #fffdf7 !important;
-  color: #2f1b0e !important;
-}
-
-:root[data-theme="tavern"] .rpg-theme-switcher,
-:root:not([data-theme]) .rpg-theme-switcher {
-  background-color: #f7ebd1;
-  border: 2px solid #5c3822;
-  color: #3b2314;
-  box-shadow: 2px 2px 0 #3b2314;
-}
-
-:root[data-theme="tavern"] .rpg-theme-pill-active,
-:root:not([data-theme]) .rpg-theme-pill-active {
-  background-color: #5c3822;
-  color: #f7c948;
-  border: 2px solid #2f1b0e;
-}
-
-:root[data-theme="tavern"] .rpg-theme-pill-idle,
-:root:not([data-theme]) .rpg-theme-pill-idle {
-  background-color: #fff9eb;
-  color: #593b25;
-  border: 2px solid #b89464;
-}
-
-/* ==========================================================================
-   主題 2：清新 Indie 像素手繪風 · 現代 Cozy 2D RPG (cozy)
-   ========================================================================== */
-:root[data-theme="cozy"] {
-  background-color: #eef6ee;
-  color: #1f2e2b;
-}
-
-:root[data-theme="cozy"] .rpg-tavern-bg,
-:root[data-theme="cozy"] .bg-slate-50,
-:root[data-theme="cozy"] .bg-gradient-to-b {
-  background-color: #eef6ee !important;
-  background-image:
-    radial-gradient(rgba(62, 122, 87, 0.12) 1.5px, transparent 1.5px) !important;
+    radial-gradient(var(--t-bg-dot1) 1.25px, transparent 1.25px),
+    radial-gradient(var(--t-bg-dot2) 1px, var(--t-bg) 1px) !important;
   background-size: 18px 18px !important;
+  background-position: 0 0, 9px 9px !important;
 }
 
-:root[data-theme="cozy"] .bg-slate-100 {
-  background-color: #dfece0 !important;
+.bg-white,
+.bg-white\/90,
+.bg-white\/80 {
+  background-color: var(--t-surface) !important;
 }
 
-:root[data-theme="cozy"] .bg-slate-50\/80 {
-  background-color: #f6fbf5 !important;
+.bg-slate-50\/80 {
+  background-color: var(--t-surface-subtle) !important;
 }
 
-:root[data-theme="cozy"] .bg-white,
-:root[data-theme="cozy"] .bg-white\/90,
-:root[data-theme="cozy"] .bg-white\/80 {
-  background-color: #fffdf9 !important;
+.bg-slate-100 {
+  background-color: var(--t-surface-muted) !important;
 }
 
-:root[data-theme="cozy"] .text-slate-900,
-:root[data-theme="cozy"] .text-slate-800 {
-  color: #1f2e2b !important;
+/* 文字層級 */
+.text-slate-900,
+.text-slate-800 {
+  color: var(--t-ink) !important;
 }
 
-:root[data-theme="cozy"] .text-slate-700,
-:root[data-theme="cozy"] .text-slate-600 {
-  color: #3b524d !important;
+.text-slate-700,
+.text-slate-600 {
+  color: var(--t-ink-2) !important;
 }
 
-:root[data-theme="cozy"] .text-slate-500,
-:root[data-theme="cozy"] .text-slate-400 {
-  color: #627d76 !important;
+.text-slate-500,
+.text-slate-400 {
+  color: var(--t-ink-muted) !important;
 }
 
-:root[data-theme="cozy"] section.rounded-3xl,
-:root[data-theme="cozy"] div.rounded-3xl {
-  border-radius: 12px !important;
-  border: 2px solid #2b3f3b !important;
-  box-shadow: 4px 4px 0 #b7d3be !important;
+/* 品牌主色與按鈕 */
+.bg-brand-600 {
+  background-color: var(--t-accent) !important;
+  color: var(--t-accent-text) !important;
 }
 
-:root[data-theme="cozy"] div.rounded-2xl.shadow-sm {
-  border-radius: 10px !important;
-  border: 2px solid #2b3f3b !important;
-  box-shadow: 3px 3px 0 #c5decb !important;
+.bg-brand-600:hover {
+  background-color: var(--t-accent-hover) !important;
 }
 
-:root[data-theme="cozy"] .rpg-wood-bar {
-  background: linear-gradient(180deg, #4f8f69 0%, #3b7453 100%) !important;
-  border: 2px solid #22382c !important;
-  border-radius: 12px !important;
-  box-shadow: 4px 4px 0 #b7d3be !important;
+.text-brand-600,
+.text-brand-500 {
+  color: var(--t-accent) !important;
 }
 
-:root[data-theme="cozy"] header.sticky {
-  background-color: #fffdf9 !important;
-  border-bottom: 2px solid #2b3f3b !important;
-  box-shadow: 0 3px 0 #cde2d2 !important;
+/* 卡片與像素外框 */
+section.rounded-3xl,
+div.rounded-3xl {
+  border-radius: var(--t-card-radius) !important;
+  border: 2px solid var(--t-border) !important;
+  box-shadow: 4px 4px 0 var(--t-shadow) !important;
 }
 
-:root[data-theme="cozy"] nav.rounded-2xl {
-  border-radius: 10px !important;
-  border: 2px solid #2b3f3b !important;
-  background-color: #dfece0 !important;
+div.rounded-2xl.shadow-sm {
+  border-radius: var(--t-btn-radius) !important;
+  border: 2px solid var(--t-border) !important;
+  box-shadow: 3px 3px 0 var(--t-shadow) !important;
 }
 
-:root[data-theme="cozy"] nav.rounded-2xl button.shadow-sm {
-  border: 2px solid #2b3f3b !important;
-  background-color: #fffdf9 !important;
-  box-shadow: 2px 2px 0 #b7d3be !important;
+/* 首頁頂部招牌列 */
+.rpg-wood-bar {
+  background: linear-gradient(180deg, var(--t-bar-from) 0%, var(--t-bar-to) 100%) !important;
+  border: 2px solid var(--t-border) !important;
+  border-radius: var(--t-card-radius) !important;
+  box-shadow: 4px 4px 0 var(--t-shadow) !important;
 }
 
-:root[data-theme="cozy"] .bg-brand-600 {
-  background-color: #e45d50 !important;
+.rpg-wood-bar h1 {
+  color: var(--t-bar-text) !important;
 }
 
-:root[data-theme="cozy"] .bg-brand-600:hover {
-  background-color: #cf493c !important;
+.rpg-wood-bar p {
+  color: var(--t-bar-sub) !important;
 }
 
-:root[data-theme="cozy"] input[type="text"],
-:root[data-theme="cozy"] input[type="number"],
-:root[data-theme="cozy"] input[type="url"],
-:root[data-theme="cozy"] input[type="datetime-local"],
-:root[data-theme="cozy"] textarea,
-:root[data-theme="cozy"] select {
-  border-radius: 8px !important;
-  border: 2px solid #75968a !important;
-  background-color: #ffffff !important;
-  color: #1f2e2b !important;
+/* 活動頁頂部導覽列 */
+header.sticky {
+  background-color: var(--t-surface) !important;
+  border-bottom: 3px solid var(--t-border) !important;
+  box-shadow: 0 3px 0 var(--t-shadow) !important;
 }
 
-:root[data-theme="cozy"] .rpg-theme-switcher {
-  background-color: #fffdf9;
-  border: 2px solid #2b3f3b;
-  color: #1f2e2b;
-  box-shadow: 3px 3px 0 #b7d3be;
+/* 分頁指令列 */
+nav.rounded-2xl {
+  border-radius: var(--t-btn-radius) !important;
+  border: 2px solid var(--t-border) !important;
+  background-color: var(--t-nav-bg) !important;
 }
 
-:root[data-theme="cozy"] .rpg-theme-pill-active {
-  background-color: #3b7453;
-  color: #fffdf9;
-  border: 2px solid #22382c;
+nav.rounded-2xl button {
+  border-radius: calc(var(--t-btn-radius) - 1px) !important;
 }
 
-:root[data-theme="cozy"] .rpg-theme-pill-idle {
-  background-color: #eef6ee;
-  color: #3b524d;
-  border: 2px solid #9ab9a5;
+nav.rounded-2xl button.shadow-sm {
+  border: 2px solid var(--t-nav-active-border) !important;
+  background-color: var(--t-nav-active-bg) !important;
+  color: var(--t-nav-active-text) !important;
+  box-shadow: 2px 2px 0 var(--t-shadow) !important;
 }
 
-/* ==========================================================================
-   主題 3：經典 JRPG 藍黑指令視窗風 (jrpg - Final Fantasy / Dragon Quest)
-   ========================================================================== */
-:root[data-theme="jrpg"] {
-  background-color: #070b1e;
-  color: #f8fafc;
+/* 輸入框與下拉選單 */
+input[type="text"],
+input[type="number"],
+input[type="url"],
+input[type="datetime-local"],
+textarea,
+select {
+  border-radius: var(--t-btn-radius) !important;
+  border: 2px solid var(--t-input-border) !important;
+  background-color: var(--t-input-bg) !important;
+  color: var(--t-ink) !important;
 }
 
-:root[data-theme="jrpg"] .rpg-tavern-bg,
-:root[data-theme="jrpg"] .bg-slate-50,
-:root[data-theme="jrpg"] .bg-gradient-to-b {
-  background-color: #070b1e !important;
-  background-image:
-    radial-gradient(rgba(147, 197, 253, 0.22) 1px, transparent 1px),
-    radial-gradient(rgba(255, 216, 77, 0.14) 1px, #070b1e 1px) !important;
-  background-size: 24px 24px !important;
-  background-position: 0 0, 12px 12px !important;
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--t-accent) !important;
 }
 
-:root[data-theme="jrpg"] .bg-white,
-:root[data-theme="jrpg"] .bg-white\/90,
-:root[data-theme="jrpg"] .bg-white\/80 {
-  background: linear-gradient(180deg, #1a2d78 0%, #0d1847 100%) !important;
-  color: #f8fafc !important;
+/* 分割線與細框 */
+.divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.border-slate-100,
+.border-slate-200,
+.border-slate-200\/80 {
+  border-color: var(--t-border-soft) !important;
 }
 
-:root[data-theme="jrpg"] .bg-slate-100,
-:root[data-theme="jrpg"] .bg-slate-50\/80 {
-  background-color: #101d52 !important;
-  color: #e2e8f0 !important;
+.ring-slate-200,
+.ring-slate-200\/80,
+.ring-slate-200\/70 {
+  --tw-ring-color: var(--t-border-soft) !important;
 }
 
-:root[data-theme="jrpg"] .bg-amber-50,
-:root[data-theme="jrpg"] .bg-amber-50\/70,
-:root[data-theme="jrpg"] .bg-amber-50\/90,
-:root[data-theme="jrpg"] .bg-amber-50\/40 {
-  background-color: #29220d !important;
-  color: #fde68a !important;
-}
-
-:root[data-theme="jrpg"] .bg-emerald-50,
-:root[data-theme="jrpg"] .bg-emerald-50\/60,
-:root[data-theme="jrpg"] .bg-emerald-50\/70 {
-  background-color: #0d2b22 !important;
-  color: #a7f3d0 !important;
-}
-
-:root[data-theme="jrpg"] .bg-rose-50,
-:root[data-theme="jrpg"] .bg-rose-50\/50 {
-  background-color: #2d1220 !important;
-  color: #fecdd3 !important;
-}
-
-:root[data-theme="jrpg"] .bg-indigo-50,
-:root[data-theme="jrpg"] .bg-indigo-50\/50,
-:root[data-theme="jrpg"] .bg-indigo-50\/70 {
-  background-color: #161f54 !important;
-  color: #c7d2fe !important;
-}
-
-:root[data-theme="jrpg"] h1,
-:root[data-theme="jrpg"] h2,
-:root[data-theme="jrpg"] h3 {
-  color: #ffd84d !important;
-  text-shadow: 2px 2px 0 #040714;
-}
-
-:root[data-theme="jrpg"] .text-slate-900,
-:root[data-theme="jrpg"] .text-slate-800,
-:root[data-theme="jrpg"] .text-amber-950,
-:root[data-theme="jrpg"] .text-amber-900,
-:root[data-theme="jrpg"] .text-indigo-900 {
-  color: #f8fafc !important;
-}
-
-:root[data-theme="jrpg"] .text-slate-700,
-:root[data-theme="jrpg"] .text-slate-600 {
-  color: #dbeafe !important;
-}
-
-:root[data-theme="jrpg"] .text-slate-500,
-:root[data-theme="jrpg"] .text-slate-400 {
-  color: #93b4f5 !important;
-}
-
-:root[data-theme="jrpg"] .text-brand-600,
-:root[data-theme="jrpg"] .text-brand-500 {
-  color: #ffd84d !important;
-}
-
-:root[data-theme="jrpg"] .text-emerald-700,
-:root[data-theme="jrpg"] .text-emerald-800,
-:root[data-theme="jrpg"] .text-emerald-600 {
-  color: #6ee7b7 !important;
-}
-
-:root[data-theme="jrpg"] .text-amber-800,
-:root[data-theme="jrpg"] .text-amber-700 {
-  color: #fcd34d !important;
-}
-
-:root[data-theme="jrpg"] .text-indigo-700,
-:root[data-theme="jrpg"] .text-indigo-600 {
-  color: #a5b4fc !important;
-}
-
-:root[data-theme="jrpg"] .text-rose-700,
-:root[data-theme="jrpg"] .text-rose-600 {
-  color: #fda4af !important;
-}
-
-/* 經典 JRPG 雙白線像素指令框 */
-:root[data-theme="jrpg"] section.rounded-3xl,
-:root[data-theme="jrpg"] div.rounded-3xl {
-  border-radius: 4px !important;
-  border: 2px solid #f8fafc !important;
-  box-shadow:
-    inset 0 0 0 2px #091030,
-    0 0 0 2px #091030,
-    4px 4px 0 #02040d !important;
-}
-
-:root[data-theme="jrpg"] div.rounded-2xl.shadow-sm {
-  border-radius: 4px !important;
-  border: 2px solid #cbd5e1 !important;
-  box-shadow:
-    inset 0 0 0 1px #091030,
-    3px 3px 0 #02040d !important;
-}
-
-:root[data-theme="jrpg"] .rpg-wood-bar {
-  background: linear-gradient(180deg, #1f3691 0%, #0e194d 100%) !important;
-  border: 2px solid #f8fafc !important;
-  box-shadow:
-    inset 0 0 0 2px #091030,
-    4px 4px 0 #02040d !important;
-}
-
-:root[data-theme="jrpg"] header.sticky {
-  background: linear-gradient(180deg, #162666 0%, #0c1640 100%) !important;
-  border-bottom: 2px solid #f8fafc !important;
-  box-shadow: 0 4px 0 #02040d !important;
-}
-
-:root[data-theme="jrpg"] nav.rounded-2xl {
-  border-radius: 4px !important;
-  border: 2px solid #93c5fd !important;
-  background-color: #091030 !important;
-}
-
-:root[data-theme="jrpg"] nav.rounded-2xl button.shadow-sm {
-  border: 2px solid #ffd84d !important;
-  background: linear-gradient(180deg, #223ca3 0%, #132263 100%) !important;
-  color: #ffd84d !important;
-}
-
-:root[data-theme="jrpg"] .bg-brand-600 {
-  background-color: #2563eb !important;
-  color: #ffffff !important;
-}
-
-:root[data-theme="jrpg"] .bg-brand-600:hover {
-  background-color: #1d4ed8 !important;
-}
-
-:root[data-theme="jrpg"] input[type="text"],
-:root[data-theme="jrpg"] input[type="number"],
-:root[data-theme="jrpg"] input[type="url"],
-:root[data-theme="jrpg"] input[type="datetime-local"],
-:root[data-theme="jrpg"] textarea,
-:root[data-theme="jrpg"] select {
-  border-radius: 4px !important;
-  border: 2px solid #93c5fd !important;
-  background-color: #091133 !important;
-  color: #f8fafc !important;
-}
-
-:root[data-theme="jrpg"] input::placeholder,
-:root[data-theme="jrpg"] textarea::placeholder {
-  color: #7c9ce0 !important;
-}
-
-:root[data-theme="jrpg"] .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
-:root[data-theme="jrpg"] .border-slate-100,
-:root[data-theme="jrpg"] .border-slate-200 {
-  border-color: rgba(147, 197, 253, 0.25) !important;
-}
-
-:root[data-theme="jrpg"] .rpg-theme-switcher {
-  background: linear-gradient(180deg, #162666 0%, #0d1847 100%);
-  border: 2px solid #f8fafc;
-  color: #ffd84d;
-  box-shadow: 3px 3px 0 #02040d;
-}
-
-:root[data-theme="jrpg"] .rpg-theme-pill-active {
-  background-color: #ffd84d;
-  color: #091030;
-  border: 2px solid #f8fafc;
-}
-
-:root[data-theme="jrpg"] .rpg-theme-pill-idle {
-  background-color: #091030;
-  color: #dbeafe;
-  border: 2px solid #60a5fa;
-}
-
-/* ==========================================================================
-   共用實體 16-bit 按鈕按壓回饋
-   ========================================================================== */
+/* 實體 16-bit 按鈕按壓回饋 */
 button.bg-brand-600,
 a.bg-brand-600,
 button.bg-emerald-600,
@@ -518,26 +218,13 @@ a.bg-indigo-600,
 button.bg-slate-900,
 a.bg-slate-900,
 button.bg-amber-600 {
-  border-radius: 4px !important;
-  border: 2px solid #2f1b0e !important;
+  border-radius: var(--t-btn-radius) !important;
+  border: 2px solid var(--t-border) !important;
   box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.22),
-    3px 3px 0 #2f1b0e !important;
+    inset 0 2px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+    3px 3px 0 var(--t-shadow) !important;
   transition: transform 0.06s ease, box-shadow 0.06s ease !important;
-}
-
-:root[data-theme="jrpg"] button.bg-brand-600,
-:root[data-theme="jrpg"] a.bg-brand-600,
-:root[data-theme="jrpg"] button.bg-emerald-600,
-:root[data-theme="jrpg"] a.bg-emerald-600,
-:root[data-theme="jrpg"] button.bg-indigo-600,
-:root[data-theme="jrpg"] a.bg-indigo-600,
-:root[data-theme="jrpg"] button.bg-slate-900,
-:root[data-theme="jrpg"] a.bg-slate-900,
-:root[data-theme="jrpg"] button.bg-amber-600 {
-  border-color: #f8fafc !important;
-  box-shadow: 3px 3px 0 #02040d !important;
 }
 
 button.bg-brand-600:active,
@@ -550,38 +237,115 @@ button.bg-slate-900:active,
 a.bg-slate-900:active,
 button.bg-amber-600:active {
   transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 #2f1b0e !important;
+  box-shadow: 1px 1px 0 var(--t-shadow) !important;
 }
 
-/* ==========================================================================
-   Sonner RPG Toast 提示框樣式（隨三套主題自動變色）
-   ========================================================================== */
+/* 主題切換器元件樣式 */
+.rpg-theme-switcher {
+  background-color: var(--t-surface);
+  border: 2px solid var(--t-border);
+  border-radius: var(--t-card-radius);
+  color: var(--t-ink);
+  box-shadow: 3px 3px 0 var(--t-shadow);
+}
+
+.rpg-theme-pill-active {
+  background-color: var(--t-badge-bg);
+  color: var(--t-badge-text);
+  border: 2px solid var(--t-border);
+}
+
+.rpg-theme-pill-idle {
+  background-color: var(--t-surface-subtle);
+  color: var(--t-ink-2);
+  border: 1.5px solid var(--t-border-soft);
+}
+
+.rpg-theme-pill-idle:hover {
+  border-color: var(--t-border);
+}
+
+/* Sonner RPG Toast 提示框樣式 */
 .rpg-toast {
-  border-radius: 4px !important;
+  border-radius: var(--t-btn-radius) !important;
   font-family: "Noto Sans TC", sans-serif !important;
   font-size: 13px !important;
   font-weight: 600 !important;
+  background-color: var(--t-surface) !important;
+  color: var(--t-ink) !important;
+  border: 2px solid var(--t-border) !important;
+  box-shadow: 3px 3px 0 var(--t-shadow) !important;
 }
 
-:root[data-theme="tavern"] .rpg-toast,
-:root:not([data-theme]) .rpg-toast {
-  background-color: #fff9eb !important;
-  color: #2f1b0e !important;
-  border: 2px solid #4a2e1b !important;
-  box-shadow: 3px 3px 0 #3b2314 !important;
+/* ==========================================================================
+   深色系主題高對比適配（jrpg / cyberpunk / halloween / dungeon / arcade / izakaya / volcano / royal / forest）
+   ========================================================================== */
+:root[data-theme-mode="dark"] h1,
+:root[data-theme-mode="dark"] h2,
+:root[data-theme-mode="dark"] h3 {
+  color: var(--t-heading) !important;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.55);
 }
 
-:root[data-theme="cozy"] .rpg-toast {
-  background-color: #fffdf9 !important;
-  color: #1f2e2b !important;
-  border: 2px solid #2b3f3b !important;
-  border-radius: 10px !important;
-  box-shadow: 3px 3px 0 #b7d3be !important;
+:root[data-theme-mode="dark"] .text-brand-600,
+:root[data-theme-mode="dark"] .text-brand-500 {
+  color: var(--t-heading) !important;
 }
 
-:root[data-theme="jrpg"] .rpg-toast {
-  background: linear-gradient(180deg, #1a2d78 0%, #0d1847 100%) !important;
-  color: #ffd84d !important;
-  border: 2px solid #f8fafc !important;
-  box-shadow: 3px 3px 0 #02040d !important;
+:root[data-theme-mode="dark"] .bg-amber-50,
+:root[data-theme-mode="dark"] .bg-amber-50\/70,
+:root[data-theme-mode="dark"] .bg-amber-50\/90,
+:root[data-theme-mode="dark"] .bg-amber-50\/40 {
+  background-color: rgba(245, 158, 11, 0.14) !important;
+  color: #fde68a !important;
+}
+
+:root[data-theme-mode="dark"] .bg-emerald-50,
+:root[data-theme-mode="dark"] .bg-emerald-50\/60,
+:root[data-theme-mode="dark"] .bg-emerald-50\/70 {
+  background-color: rgba(16, 185, 129, 0.16) !important;
+  color: #a7f3d0 !important;
+}
+
+:root[data-theme-mode="dark"] .bg-rose-50,
+:root[data-theme-mode="dark"] .bg-rose-50\/50 {
+  background-color: rgba(244, 63, 94, 0.16) !important;
+  color: #fecdd3 !important;
+}
+
+:root[data-theme-mode="dark"] .bg-indigo-50,
+:root[data-theme-mode="dark"] .bg-indigo-50\/50,
+:root[data-theme-mode="dark"] .bg-indigo-50\/70 {
+  background-color: rgba(99, 102, 241, 0.2) !important;
+  color: #c7d2fe !important;
+}
+
+:root[data-theme-mode="dark"] .text-amber-950,
+:root[data-theme-mode="dark"] .text-amber-900,
+:root[data-theme-mode="dark"] .text-amber-800,
+:root[data-theme-mode="dark"] .text-amber-700 {
+  color: #fde68a !important;
+}
+
+:root[data-theme-mode="dark"] .text-emerald-800,
+:root[data-theme-mode="dark"] .text-emerald-700,
+:root[data-theme-mode="dark"] .text-emerald-600 {
+  color: #6ee7b7 !important;
+}
+
+:root[data-theme-mode="dark"] .text-indigo-900,
+:root[data-theme-mode="dark"] .text-indigo-700,
+:root[data-theme-mode="dark"] .text-indigo-600 {
+  color: #c7d2fe !important;
+}
+
+:root[data-theme-mode="dark"] .text-rose-700,
+:root[data-theme-mode="dark"] .text-rose-600 {
+  color: #fda4af !important;
+}
+
+:root[data-theme-mode="dark"] input::placeholder,
+:root[data-theme-mode="dark"] textarea::placeholder {
+  color: var(--t-ink-muted) !important;
+  opacity: 0.8;
 }

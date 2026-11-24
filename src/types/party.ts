@@ -1,4 +1,5 @@
-export type AppTheme = 'tavern' | 'cozy' | 'jrpg';
+import type { AppTheme } from '../lib/themes';
+export type { AppTheme };
 
 export type RsvpStatus = 'going' | 'maybe' | 'declined';
 
@@ -54,6 +55,7 @@ export interface Party {
   address?: string;
   hostName: string;
   maxGuests?: number;
+  theme?: AppTheme;
   announcement?: string;
   announcementUpdatedAt?: string;
   manuallyEnded?: boolean;

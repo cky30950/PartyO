@@ -1,5 +1,6 @@
 import { get, onValue, ref, remove, set, update } from 'firebase/database';
 import { rtdb } from './firebase';
+import { isValidAppTheme } from './themes';
 import type {
   AppTheme,
   ApprovalStatus,
@@ -66,6 +67,7 @@ function normalizeParty(raw: Partial<Party> & { id?: string }, fallbackId = ''):
     address: raw.address ?? '',
     hostName: raw.hostName ?? '',
     maxGuests: typeof raw.maxGuests === 'number' && raw.maxGuests > 0 ? raw.maxGuests : undefined,
+    theme: isValidAppTheme(raw.theme) ? raw.theme : undefined,
     announcement: raw.announcement ?? '',
     announcementUpdatedAt: raw.announcementUpdatedAt ?? '',
     manuallyEnded: typeof raw.manuallyEnded === 'boolean' ? raw.manuallyEnded : undefined,
@@ -473,10 +475,6 @@ export function subscribeHostPaymentProfile(
       onError?.(err);
     }
   );
-}
-
-function isValidAppTheme(val: unknown): val is AppTheme {
-  return val === 'tavern' || val === 'cozy' || val === 'jrpg';
 }
 
 export function readCachedAppTheme(): AppTheme {

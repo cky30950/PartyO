@@ -37,6 +37,7 @@ import {
   buildShortPartyUrl,
 } from './lib/calendar';
 import { fireConfetti } from './lib/celebrate';
+import { applyThemeToDocument, getThemeTokens } from './lib/themes';
 import { HomeView } from './components/HomeView';
 import { PartyDashboard } from './components/PartyDashboard';
 
@@ -74,26 +75,18 @@ export function App() {
   const [appTheme, setAppTheme] = useState<AppTheme>(() => readCachedAppTheme());
 
   const isAdmin = isAdminUser(user);
+  const activeTheme: AppTheme = partyId && party?.theme ? party.theme : appTheme;
 
-  // 全站同步監聽主辦人選擇的主題風格
+  // 全站同步監聽首頁／預設主題風格
   useEffect(() => {
     const unsub = subscribeAppTheme((nextTheme) => setAppTheme(nextTheme));
     return () => unsub();
   }, []);
 
-  // 套用 data-theme 與瀏覽器狀態列主題色
+  // 進入個別活動時自動切換成該活動主題，返回首頁時切回預設主題
   useEffect(() => {
-    document.documentElement.dataset.theme = appTheme;
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) {
-      const colors: Record<AppTheme, string> = {
-        tavern: '#5C3822',
-        cozy: '#3B7453',
-        jrpg: '#0D1847',
-      };
-      meta.setAttribute('content', colors[appTheme]);
-    }
-  }, [appTheme]);
+    applyThemeToDocument(activeTheme);
+  }, [activeTheme]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (nextUser) => {
@@ -298,19 +291,27 @@ export function App() {
     setHostPaymentProfile(saved);
   }
 
-  async function handleChangeTheme(nextTheme: AppTheme) {
+  async function handleChangeDefaultTheme(nextTheme: AppTheme) {
     if (!isAdmin) return;
     setAppTheme(nextTheme);
     try {
       await saveAppTheme(nextTheme);
-      const names: Record<AppTheme, string> = {
-        tavern: '16-bit 酒館',
-        cozy: '清新像素',
-        jrpg: '經典 JRPG',
-      };
-      toast.success(`已切換全站主題：${names[nextTheme]}`);
+      toast.success(`已切換首頁預設主題：${getThemeTokens(nextTheme).name}`);
     } catch {
       toast.error('主題同步失敗，請檢查 Realtime Database 規則');
+    }
+  }
+
+  async function handleChangePartyTheme(nextTheme: AppTheme) {
+    if (!isAdmin || !party) return;
+    try {
+      await handleUpdateParty({
+        ...party,
+        theme: nextTheme,
+      });
+      toast.success(`此活動主題已切換為「${getThemeTokens(nextTheme).name}」`);
+    } catch {
+      toast.error('活動主題儲存失敗，請稍後再試');
     }
   }
 
@@ -330,7 +331,7 @@ export function App() {
         currentUser={user}
         hostPaymentProfile={hostPaymentProfile}
         appTheme={appTheme}
-        onChangeTheme={handleChangeTheme}
+        onChangeTheme={handleChangeDefaultTheme}
         authBusy={authBusy}
         authError={authError}
         onSignIn={handleSignIn}
@@ -408,8 +409,8 @@ export function App() {
       isAdmin={isAdmin}
       currentUser={user}
       hostPaymentProfile={hostPaymentProfile}
-      appTheme={appTheme}
-      onChangeTheme={handleChangeTheme}
+      appTheme={activeTheme}
+      onChangeTheme={handleChangePartyTheme}
       authBusy={authBusy}
       authError={authError}
       onBack={() => navigateToParty(null)}
