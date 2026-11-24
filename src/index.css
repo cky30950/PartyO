@@ -4,27 +4,28 @@
 
 @layer base {
   :root {
-    --t-bg: #f3e7cc;
-    --t-bg-dot1: rgba(92, 56, 34, 0.09);
-    --t-bg-dot2: rgba(92, 56, 34, 0.04);
+    --t-bg: #f2e3c2;
+    --t-bg-dot1: rgba(92, 56, 34, 0.11);
+    --t-bg-dot2: rgba(138, 92, 54, 0.05);
     --t-surface: #fff9eb;
-    --t-surface-subtle: #fbf2dd;
-    --t-surface-muted: #ead9b7;
+    --t-surface-subtle: #fbf1d9;
+    --t-surface-muted: #e9d6b0;
     --t-ink: #2f1b0e;
     --t-ink-2: #593b25;
     --t-ink-muted: #826146;
-    --t-heading: #2f1b0e;
+    --t-heading: #3b2314;
     --t-border: #4a2e1b;
     --t-border-soft: #d6bc8e;
     --t-shadow: #3b2314;
+    --t-glow: transparent;
     --t-bar-from: #6e4226;
-    --t-bar-to: #56321c;
+    --t-bar-to: #4e2c18;
     --t-bar-text: #f7c948;
     --t-bar-sub: #f3e7cc;
     --t-accent: #b83525;
     --t-accent-hover: #932619;
     --t-accent-text: #ffffff;
-    --t-nav-bg: #e4cfa7;
+    --t-nav-bg: #e2cca2;
     --t-nav-active-bg: #fff9eb;
     --t-nav-active-border: #4a2e1b;
     --t-nav-active-text: #b83525;
@@ -60,21 +61,140 @@ img[src$="icon.svg"] {
 }
 
 /* ==========================================================================
-   23 款 2D RPG 主題統一 CSS 變數引擎
+   1. 11 種專屬背景底紋系統（依 data-theme-pattern 切換）
    ========================================================================== */
-
-/* 背景與網點底紋 */
 .rpg-tavern-bg,
 .bg-slate-50,
 .bg-gradient-to-b {
   background-color: var(--t-bg) !important;
+}
+
+/* 木紋羊皮紙（酒館） */
+:root[data-theme-pattern="wood"] .rpg-tavern-bg,
+:root[data-theme-pattern="wood"] .bg-slate-50,
+:root[data-theme-pattern="wood"] .bg-gradient-to-b,
+:root:not([data-theme-pattern]) .rpg-tavern-bg,
+:root:not([data-theme-pattern]) .bg-slate-50,
+:root:not([data-theme-pattern]) .bg-gradient-to-b {
   background-image:
-    radial-gradient(var(--t-bg-dot1) 1.25px, transparent 1.25px),
-    radial-gradient(var(--t-bg-dot2) 1px, var(--t-bg) 1px) !important;
-  background-size: 18px 18px !important;
+    repeating-linear-gradient(0deg, transparent 0 26px, var(--t-bg-dot1) 26px 28px),
+    radial-gradient(var(--t-bg-dot2) 1.5px, transparent 1.5px) !important;
+  background-size: 100% 28px, 16px 16px !important;
+}
+
+/* 柔和波點（清新像素 / 櫻花 / 情人節 / 復活節） */
+:root[data-theme-pattern="polka"] .rpg-tavern-bg,
+:root[data-theme-pattern="polka"] .bg-slate-50,
+:root[data-theme-pattern="polka"] .bg-gradient-to-b {
+  background-image:
+    radial-gradient(var(--t-bg-dot1) 2.2px, transparent 2.2px),
+    radial-gradient(var(--t-bg-dot2) 2px, transparent 2px) !important;
+  background-size: 24px 24px !important;
+  background-position: 0 0, 12px 12px !important;
+}
+
+/* 像素星空（經典 JRPG / 中秋 / 跨年 / 夏日煙火） */
+:root[data-theme-pattern="stars"] .rpg-tavern-bg,
+:root[data-theme-pattern="stars"] .bg-slate-50,
+:root[data-theme-pattern="stars"] .bg-gradient-to-b {
+  background-image:
+    radial-gradient(var(--t-bg-dot1) 1.5px, transparent 1.5px),
+    radial-gradient(var(--t-bg-dot2) 2px, transparent 2px),
+    radial-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px) !important;
+  background-size: 36px 36px, 52px 52px, 22px 22px !important;
+  background-position: 0 0, 18px 26px, 8px 12px !important;
+}
+
+/* 掌機液晶掃描線（經典掌機） */
+:root[data-theme-pattern="lcd"] .rpg-tavern-bg,
+:root[data-theme-pattern="lcd"] .bg-slate-50,
+:root[data-theme-pattern="lcd"] .bg-gradient-to-b {
+  background-image:
+    linear-gradient(var(--t-bg-dot1) 1px, transparent 1px),
+    linear-gradient(90deg, var(--t-bg-dot2) 1px, transparent 1px) !important;
+  background-size: 4px 4px !important;
+}
+
+/* 霓虹網格（賽博 / 街機） */
+:root[data-theme-pattern="grid"] .rpg-tavern-bg,
+:root[data-theme-pattern="grid"] .bg-slate-50,
+:root[data-theme-pattern="grid"] .bg-gradient-to-b {
+  background-image:
+    linear-gradient(var(--t-bg-dot1) 1px, transparent 1px),
+    linear-gradient(90deg, var(--t-bg-dot2) 1px, transparent 1px) !important;
+  background-size: 28px 28px !important;
+}
+
+/* 石磚砌牆（地下城 / 萬聖夜堡） */
+:root[data-theme-pattern="bricks"] .rpg-tavern-bg,
+:root[data-theme-pattern="bricks"] .bg-slate-50,
+:root[data-theme-pattern="bricks"] .bg-gradient-to-b {
+  background-image:
+    linear-gradient(0deg, var(--t-bg-dot1) 2px, transparent 2px),
+    linear-gradient(90deg, var(--t-bg-dot1) 2px, transparent 2px),
+    linear-gradient(90deg, var(--t-bg-dot2) 2px, transparent 2px) !important;
+  background-size: 48px 24px, 48px 48px, 48px 48px !important;
+  background-position: 0 0, 0 0, 24px 24px !important;
+}
+
+/* 和風市松格子（居酒屋 / 抹茶 / 皇家） */
+:root[data-theme-pattern="checker"] .rpg-tavern-bg,
+:root[data-theme-pattern="checker"] .bg-slate-50,
+:root[data-theme-pattern="checker"] .bg-gradient-to-b {
+  background-image:
+    linear-gradient(45deg, var(--t-bg-dot1) 25%, transparent 25%, transparent 75%, var(--t-bg-dot1) 75%),
+    linear-gradient(45deg, var(--t-bg-dot1) 25%, transparent 25%, transparent 75%, var(--t-bg-dot1) 75%) !important;
+  background-size: 28px 28px !important;
+  background-position: 0 0, 14px 14px !important;
+}
+
+/* 海浪波紋（蔚藍船P / 端午龍舟） */
+:root[data-theme-pattern="waves"] .rpg-tavern-bg,
+:root[data-theme-pattern="waves"] .bg-slate-50,
+:root[data-theme-pattern="waves"] .bg-gradient-to-b {
+  background-image:
+    radial-gradient(circle at 100% 50%, transparent 18%, var(--t-bg-dot1) 19%, var(--t-bg-dot1) 24%, transparent 25%),
+    radial-gradient(circle at 0% 50%, transparent 18%, var(--t-bg-dot2) 19%, var(--t-bg-dot2) 24%, transparent 25%) !important;
+  background-size: 32px 24px !important;
+}
+
+/* 黃昏落日漸層（黃昏天台） */
+:root[data-theme-pattern="sunset"] .rpg-tavern-bg,
+:root[data-theme-pattern="sunset"] .bg-slate-50,
+:root[data-theme-pattern="sunset"] .bg-gradient-to-b {
+  background-image:
+    linear-gradient(180deg, #ffd4b8 0%, #ffe8d6 45%, #f5d0e3 100%) !important;
+  background-size: 100% 100% !important;
+}
+
+/* 飄雪冰晶（冰雪王國） */
+:root[data-theme-pattern="snow"] .rpg-tavern-bg,
+:root[data-theme-pattern="snow"] .bg-slate-50,
+:root[data-theme-pattern="snow"] .bg-gradient-to-b {
+  background-image:
+    radial-gradient(var(--t-bg-dot1) 2.5px, transparent 2.5px),
+    radial-gradient(var(--t-bg-dot2) 1.5px, transparent 1.5px) !important;
+  background-size: 30px 30px, 18px 18px !important;
   background-position: 0 0, 9px 9px !important;
 }
 
+/* 節日斜紋彩帶（新春 / 聖誕 / 生日） */
+:root[data-theme-pattern="stripes"] .rpg-tavern-bg,
+:root[data-theme-pattern="stripes"] .bg-slate-50,
+:root[data-theme-pattern="stripes"] .bg-gradient-to-b {
+  background-image:
+    repeating-linear-gradient(
+      -45deg,
+      transparent 0 14px,
+      var(--t-bg-dot1) 14px 20px,
+      transparent 20px 34px,
+      var(--t-bg-dot2) 34px 40px
+    ) !important;
+}
+
+/* ==========================================================================
+   2. 6 種卡片外框風格（依 data-theme-frame 切換）
+   ========================================================================== */
 .bg-white,
 .bg-white\/90,
 .bg-white\/80 {
@@ -89,7 +209,63 @@ img[src$="icon.svg"] {
   background-color: var(--t-surface-muted) !important;
 }
 
-/* 文字層級 */
+/* 基礎卡片（pixel 預設） */
+section.rounded-3xl,
+div.rounded-3xl {
+  border-radius: var(--t-card-radius) !important;
+  border: 2px solid var(--t-border) !important;
+  box-shadow: 4px 4px 0 var(--t-shadow) !important;
+}
+
+div.rounded-2xl.shadow-sm {
+  border-radius: var(--t-btn-radius) !important;
+  border: 2px solid var(--t-border) !important;
+  box-shadow: 3px 3px 0 var(--t-shadow) !important;
+}
+
+/* JRPG 經典雙白線指令框 */
+:root[data-theme-frame="jrpg"] section.rounded-3xl,
+:root[data-theme-frame="jrpg"] div.rounded-3xl {
+  border: 2px solid var(--t-border) !important;
+  box-shadow:
+    inset 0 0 0 2px var(--t-bg),
+    0 0 0 2px var(--t-bg),
+    4px 4px 0 var(--t-shadow) !important;
+}
+
+/* 霓虹發光外框（賽博 / 街機 / 萬聖 / 跨年 / 夏日煙火） */
+:root[data-theme-frame="neon"] section.rounded-3xl,
+:root[data-theme-frame="neon"] div.rounded-3xl {
+  border: 2px solid var(--t-border) !important;
+  box-shadow:
+    0 0 12px var(--t-glow),
+    3px 3px 0 var(--t-shadow) !important;
+}
+
+/* 捲軸／宮廷／節日雙層典雅邊框（新春 / 聖誕 / 中秋 / 皇家 / 居酒屋 / 櫻花） */
+:root[data-theme-frame="scroll"] section.rounded-3xl,
+:root[data-theme-frame="scroll"] div.rounded-3xl {
+  border: 4px double var(--t-border) !important;
+  box-shadow: 4px 4px 0 var(--t-shadow) !important;
+}
+
+/* 手作虛線印章框（抹茶 / 復活節） */
+:root[data-theme-frame="dashed"] section.rounded-3xl,
+:root[data-theme-frame="dashed"] div.rounded-3xl {
+  border: 2px dashed var(--t-border) !important;
+  box-shadow: 4px 4px 0 var(--t-shadow) !important;
+}
+
+/* 圓潤手繪厚框（清新像素 / 蔚藍船P / 情人節 / 黃昏 / 生日） */
+:root[data-theme-frame="cozy"] section.rounded-3xl,
+:root[data-theme-frame="cozy"] div.rounded-3xl {
+  border: 2.5px solid var(--t-border) !important;
+  box-shadow: 5px 5px 0 var(--t-shadow) !important;
+}
+
+/* ==========================================================================
+   3. 文字、按鈕、導覽與表單
+   ========================================================================== */
 .text-slate-900,
 .text-slate-800 {
   color: var(--t-ink) !important;
@@ -105,7 +281,6 @@ img[src$="icon.svg"] {
   color: var(--t-ink-muted) !important;
 }
 
-/* 品牌主色與按鈕 */
 .bg-brand-600 {
   background-color: var(--t-accent) !important;
   color: var(--t-accent-text) !important;
@@ -120,21 +295,6 @@ img[src$="icon.svg"] {
   color: var(--t-accent) !important;
 }
 
-/* 卡片與像素外框 */
-section.rounded-3xl,
-div.rounded-3xl {
-  border-radius: var(--t-card-radius) !important;
-  border: 2px solid var(--t-border) !important;
-  box-shadow: 4px 4px 0 var(--t-shadow) !important;
-}
-
-div.rounded-2xl.shadow-sm {
-  border-radius: var(--t-btn-radius) !important;
-  border: 2px solid var(--t-border) !important;
-  box-shadow: 3px 3px 0 var(--t-shadow) !important;
-}
-
-/* 首頁頂部招牌列 */
 .rpg-wood-bar {
   background: linear-gradient(180deg, var(--t-bar-from) 0%, var(--t-bar-to) 100%) !important;
   border: 2px solid var(--t-border) !important;
@@ -150,14 +310,12 @@ div.rounded-2xl.shadow-sm {
   color: var(--t-bar-sub) !important;
 }
 
-/* 活動頁頂部導覽列 */
 header.sticky {
   background-color: var(--t-surface) !important;
   border-bottom: 3px solid var(--t-border) !important;
   box-shadow: 0 3px 0 var(--t-shadow) !important;
 }
 
-/* 分頁指令列 */
 nav.rounded-2xl {
   border-radius: var(--t-btn-radius) !important;
   border: 2px solid var(--t-border) !important;
@@ -175,7 +333,6 @@ nav.rounded-2xl button.shadow-sm {
   box-shadow: 2px 2px 0 var(--t-shadow) !important;
 }
 
-/* 輸入框與下拉選單 */
 input[type="text"],
 input[type="number"],
 input[type="url"],
@@ -194,7 +351,6 @@ select:focus {
   border-color: var(--t-accent) !important;
 }
 
-/* 分割線與細框 */
 .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
 .border-slate-100,
 .border-slate-200,
@@ -208,7 +364,6 @@ select:focus {
   --tw-ring-color: var(--t-border-soft) !important;
 }
 
-/* 實體 16-bit 按鈕按壓回饋 */
 button.bg-brand-600,
 a.bg-brand-600,
 button.bg-emerald-600,
@@ -240,7 +395,6 @@ button.bg-amber-600:active {
   box-shadow: 1px 1px 0 var(--t-shadow) !important;
 }
 
-/* 主題切換器元件樣式 */
 .rpg-theme-switcher {
   background-color: var(--t-surface);
   border: 2px solid var(--t-border);
@@ -265,7 +419,6 @@ button.bg-amber-600:active {
   border-color: var(--t-border);
 }
 
-/* Sonner RPG Toast 提示框樣式 */
 .rpg-toast {
   border-radius: var(--t-btn-radius) !important;
   font-family: "Noto Sans TC", sans-serif !important;
@@ -277,9 +430,7 @@ button.bg-amber-600:active {
   box-shadow: 3px 3px 0 var(--t-shadow) !important;
 }
 
-/* ==========================================================================
-   深色系主題高對比適配（jrpg / cyberpunk / halloween / dungeon / arcade / izakaya / volcano / royal / forest）
-   ========================================================================== */
+/* 深色主題高對比適配 */
 :root[data-theme-mode="dark"] h1,
 :root[data-theme-mode="dark"] h2,
 :root[data-theme-mode="dark"] h3 {

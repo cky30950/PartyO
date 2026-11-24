@@ -373,11 +373,20 @@ export function HomeView({
                       onChange={(e) => setSelectedTheme(e.target.value as AppTheme)}
                       className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none"
                     >
-                      {THEME_LIST.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}（{t.mode === 'dark' ? '深色' : '淺色'}）
-                        </option>
-                      ))}
+                      <optgroup label="風格世界">
+                        {THEME_LIST.filter((t) => t.group === 'world').map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.emoji} {t.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="節日慶典">
+                        {THEME_LIST.filter((t) => t.group === 'festival').map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.emoji} {t.name}
+                          </option>
+                        ))}
+                      </optgroup>
                     </select>
                   </div>
                 </div>
@@ -491,10 +500,7 @@ export function HomeView({
                         <p className="truncate text-sm font-bold text-slate-900">{p.title}</p>
                         {p.theme ? (
                           <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                            <span
-                              className="h-2 w-2 rounded-full"
-                              style={{ backgroundColor: getThemeTokens(p.theme).dot }}
-                            />
+                            <span>{getThemeTokens(p.theme).emoji}</span>
                             {getThemeTokens(p.theme).name}
                           </span>
                         ) : null}

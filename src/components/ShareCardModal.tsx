@@ -133,22 +133,23 @@ export function ShareCardModal({
           </button>
         </div>
 
-        {/* 匯出目標卡片 DOM（動態套用全部 23 款主題色盤） */}
+        {/* 匯出目標卡片 DOM（動態套用主題色盤、外框風格與節日徽章） */}
         <div
           ref={cardRef}
           className="p-3.5"
           style={{
             backgroundColor: t.bg,
-            border: `3px solid ${t.border}`,
+            border: t.frame === 'scroll' ? `4px double ${t.border}` : t.frame === 'dashed' ? `2px dashed ${t.border}` : `3px solid ${t.border}`,
             borderRadius: t.cardRadius,
             color: t.ink,
+            boxShadow: t.frame === 'neon' ? `0 0 14px ${t.glow}` : undefined,
           }}
         >
           <div
             className="p-4"
             style={{
               backgroundColor: t.surface,
-              border: `2px solid ${t.border}`,
+              border: t.frame === 'scroll' ? `3px double ${t.border}` : `2px solid ${t.border}`,
               borderRadius: t.btnRadius,
             }}
           >
@@ -157,10 +158,10 @@ export function ShareCardModal({
                 className="inline-block rounded px-2 py-0.5 font-pixel text-[10px] font-bold tracking-wider"
                 style={{ backgroundColor: t.badgeBg, color: t.badgeText }}
               >
-                {mode === 'invite' ? 'PARTY INVITE' : 'GOLD LEDGER'}
+                {t.emoji} {mode === 'invite' ? 'PARTY INVITE' : 'GOLD LEDGER'}
               </span>
               <span className="font-pixel text-[10px] font-bold" style={{ color: t.inkMuted }}>
-                PartyO
+                {t.name}
               </span>
             </div>
 
