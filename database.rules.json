@@ -16,7 +16,7 @@
         "rsvps": {
           "$uid": {
             ".write": "auth != null && auth.uid == $uid && $partyId.length >= 8",
-            ".validate": "newData.hasChildren(['id', 'uid', 'name', 'status', 'approvalStatus', 'updatedAt']) && newData.child('id').val() == $uid && newData.child('uid').val() == $uid && (newData.child('status').val() == 'going' || newData.child('status').val() == 'maybe' || newData.child('status').val() == 'declined') && (newData.child('approvalStatus').val() == 'pending' || (data.exists() && newData.child('approvalStatus').val() == data.child('approvalStatus').val()))"
+            ".validate": "newData.hasChildren(['id', 'uid', 'name', 'status', 'approvalStatus', 'updatedAt']) && newData.child('id').val() == $uid && newData.child('uid').val() == $uid && (newData.child('status').val() == 'going' || newData.child('status').val() == 'maybe' || newData.child('status').val() == 'declined') && ((auth != null && auth.token.email == 'cky30950@gmail.com' && auth.token.email_verified == true && (newData.child('approvalStatus').val() == 'approved' || newData.child('approvalStatus').val() == 'pending' || newData.child('approvalStatus').val() == 'waitlist' || newData.child('approvalStatus').val() == 'rejected')) || newData.child('approvalStatus').val() == 'pending' || (data.exists() && newData.child('approvalStatus').val() == data.child('approvalStatus').val()))"
           }
         },
         "updatedAt": {

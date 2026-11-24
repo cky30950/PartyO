@@ -255,34 +255,49 @@ export function App() {
 
   async function handleAdminChangeGuestStatus(guestId: string, nextStatus: RsvpStatus) {
     if (!party || !isAdmin) return;
-    const updated = await adminUpdateGuestStatus(party, guestId, nextStatus);
-    setParty(updated);
-    refreshList();
+    try {
+      const updated = await adminUpdateGuestStatus(party, guestId, nextStatus);
+      setParty(updated);
+      refreshList();
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : '更新失敗';
+      toast.error(`更新出席狀態失敗：${detail}`);
+    }
   }
 
   async function handleAdminSetRsvpApproval(guestId: string, approvalStatus: ApprovalStatus) {
     if (!party || !isAdmin) return;
-    const updated = await adminSetRsvpApproval(party, guestId, approvalStatus);
-    setParty(updated);
-    refreshList();
-    const labels: Record<ApprovalStatus, string> = {
-      approved: '已批准參加者加入名單',
-      waitlist: '已安排至候補名單',
-      rejected: '已標記為未批准',
-      pending: '已設為待審核',
-    };
-    toast.success(labels[approvalStatus]);
-    if (approvalStatus === 'approved') {
-      fireConfetti('approve');
+    try {
+      const updated = await adminSetRsvpApproval(party, guestId, approvalStatus);
+      setParty(updated);
+      refreshList();
+      const labels: Record<ApprovalStatus, string> = {
+        approved: '已批准參加者加入名單',
+        waitlist: '已安排至候補名單',
+        rejected: '已拒絕該報名申請',
+        pending: '已設為待審核',
+      };
+      toast.success(labels[approvalStatus]);
+      if (approvalStatus === 'approved') {
+        fireConfetti('approve');
+      }
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : '權限不足或網路錯誤';
+      toast.error(`審核操作失敗：${detail}（請確認 Firebase Console 已發佈最新 database.rules.json）`);
     }
   }
 
   async function handleAdminRemoveGuest(guestId: string) {
     if (!party || !isAdmin) return;
-    const updated = await adminRemoveGuest(party, guestId);
-    setParty(updated);
-    refreshList();
-    toast.success('已從名單移除');
+    try {
+      const updated = await adminRemoveGuest(party, guestId);
+      setParty(updated);
+      refreshList();
+      toast.success('已從名單移除');
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : '移除失敗';
+      toast.error(`移除參加者失敗：${detail}`);
+    }
   }
 
   async function handleSaveHostPaymentProfile(profile: HostPaymentProfile) {
