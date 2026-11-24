@@ -1,0 +1,30 @@
+name: PartyO 開局前手機推送提醒
+
+on:
+  schedule:
+    # 每 30 分鐘自動檢查一次快開始的派對（UTC）
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  send-party-reminders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install firebase-admin
+        run: npm install --no-save firebase-admin
+
+      - name: Check upcoming parties and send FCM push notifications
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          PARTYO_APP_URL: ${{ secrets.PARTYO_APP_URL }}
+          FIREBASE_DATABASE_URL: https://cheungec-ea477-default-rtdb.firebaseio.com
+          PARTY_TIMEZONE_OFFSET: '+08:00'
+        run: node scripts/send-reminders.mjs

@@ -16,6 +16,7 @@ export default defineConfig({
         clientsClaim: true,
         skipWaiting: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
+        globIgnores: ['**/firebase-messaging-sw.js'],
       },
     }),
   ],

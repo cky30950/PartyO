@@ -40,6 +40,7 @@ import { RsvpTab } from './RsvpTab';
 import { CalendarTab } from './CalendarTab';
 import { ExpensesTab } from './ExpensesTab';
 import { ThemeSwitcher } from './ThemeSwitcher';
+import { PushReminderBar } from './PushReminderBar';
 
 type TabKey = 'rsvp' | 'calendar' | 'expenses';
 
@@ -347,6 +348,16 @@ export function PartyDashboard({
               onChangeTheme={onChangeTheme}
             />
           </div>
+        ) : null}
+
+        {!ended ? (
+          <PushReminderBar
+            partyId={party.id}
+            isAdmin={isAdmin}
+            currentUser={currentUser}
+            authBusy={authBusy}
+            onSignIn={onSignIn}
+          />
         ) : null}
 
         {/* 置頂即時公告（跨所有分頁顯示） */}

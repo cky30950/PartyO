@@ -410,7 +410,11 @@ export function removeRecentParty(partyId: string): void {
 }
 
 export async function deleteParty(partyId: string): Promise<void> {
-  await remove(ref(rtdb, `parties/${partyId}`));
+  await Promise.all([
+    remove(ref(rtdb, `parties/${partyId}`)),
+    remove(ref(rtdb, `partyPushTokens/${partyId}`)).catch(() => {}),
+    remove(ref(rtdb, `partyRemindersSent/${partyId}`)).catch(() => {}),
+  ]);
   removeRecentParty(partyId);
 }
 

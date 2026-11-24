@@ -8,6 +8,21 @@
       ".read": "auth != null && auth.token.email == 'cky30950@gmail.com' && auth.token.email_verified == true",
       ".write": "auth != null && auth.token.email == 'cky30950@gmail.com' && auth.token.email_verified == true"
     },
+    "partyPushTokens": {
+      "$partyId": {
+        ".read": "auth != null && auth.token.email == 'cky30950@gmail.com' && auth.token.email_verified == true",
+        ".write": "auth != null && auth.token.email == 'cky30950@gmail.com' && auth.token.email_verified == true",
+        "$uid": {
+          ".read": "auth != null && auth.uid == $uid && $partyId.length >= 8",
+          ".write": "auth != null && auth.uid == $uid && $partyId.length >= 8",
+          ".validate": "!newData.exists() || (newData.hasChildren(['token', 'uid', 'updatedAt']) && newData.child('uid').val() == $uid && newData.child('token').isString())"
+        }
+      }
+    },
+    "partyRemindersSent": {
+      ".read": "auth != null && auth.token.email == 'cky30950@gmail.com' && auth.token.email_verified == true",
+      ".write": "auth != null && auth.token.email == 'cky30950@gmail.com' && auth.token.email_verified == true"
+    },
     "parties": {
       ".read": "auth != null && auth.token.email == 'cky30950@gmail.com' && auth.token.email_verified == true",
       ".write": "auth != null && auth.token.email == 'cky30950@gmail.com' && auth.token.email_verified == true",
