@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
+import { toast } from 'sonner';
 import type {
   AppTheme,
   ApprovalStatus,
@@ -35,6 +36,7 @@ import {
   buildGoogleMapsUrl,
   buildShortPartyUrl,
 } from './lib/calendar';
+import { fireConfetti } from './lib/celebrate';
 import { HomeView } from './components/HomeView';
 import { PartyDashboard } from './components/PartyDashboard';
 
@@ -270,6 +272,16 @@ export function App() {
     const updated = await adminSetRsvpApproval(party, guestId, approvalStatus);
     setParty(updated);
     refreshList();
+    const labels: Record<ApprovalStatus, string> = {
+      approved: '已批准參加者加入名單',
+      waitlist: '已安排至候補名單',
+      rejected: '已標記為未批准',
+      pending: '已設為待審核',
+    };
+    toast.success(labels[approvalStatus]);
+    if (approvalStatus === 'approved') {
+      fireConfetti('approve');
+    }
   }
 
   async function handleAdminRemoveGuest(guestId: string) {
@@ -277,6 +289,7 @@ export function App() {
     const updated = await adminRemoveGuest(party, guestId);
     setParty(updated);
     refreshList();
+    toast.success('已從名單移除');
   }
 
   async function handleSaveHostPaymentProfile(profile: HostPaymentProfile) {
@@ -288,7 +301,17 @@ export function App() {
   async function handleChangeTheme(nextTheme: AppTheme) {
     if (!isAdmin) return;
     setAppTheme(nextTheme);
-    await saveAppTheme(nextTheme);
+    try {
+      await saveAppTheme(nextTheme);
+      const names: Record<AppTheme, string> = {
+        tavern: '16-bit 酒館',
+        cozy: '清新像素',
+        jrpg: '經典 JRPG',
+      };
+      toast.success(`已切換全站主題：${names[nextTheme]}`);
+    } catch {
+      toast.error('主題同步失敗，請檢查 Realtime Database 規則');
+    }
   }
 
   if (!partyId) {

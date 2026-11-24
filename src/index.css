@@ -552,3 +552,36 @@ button.bg-amber-600:active {
   transform: translate(2px, 2px);
   box-shadow: 1px 1px 0 #2f1b0e !important;
 }
+
+/* ==========================================================================
+   Sonner RPG Toast 提示框樣式（隨三套主題自動變色）
+   ========================================================================== */
+.rpg-toast {
+  border-radius: 4px !important;
+  font-family: "Noto Sans TC", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+:root[data-theme="tavern"] .rpg-toast,
+:root:not([data-theme]) .rpg-toast {
+  background-color: #fff9eb !important;
+  color: #2f1b0e !important;
+  border: 2px solid #4a2e1b !important;
+  box-shadow: 3px 3px 0 #3b2314 !important;
+}
+
+:root[data-theme="cozy"] .rpg-toast {
+  background-color: #fffdf9 !important;
+  color: #1f2e2b !important;
+  border: 2px solid #2b3f3b !important;
+  border-radius: 10px !important;
+  box-shadow: 3px 3px 0 #b7d3be !important;
+}
+
+:root[data-theme="jrpg"] .rpg-toast {
+  background: linear-gradient(180deg, #1a2d78 0%, #0d1847 100%) !important;
+  color: #ffd84d !important;
+  border: 2px solid #f8fafc !important;
+  box-shadow: 3px 3px 0 #02040d !important;
+}

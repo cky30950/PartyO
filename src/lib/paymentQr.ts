@@ -66,13 +66,6 @@ export function buildFpsHkqrPayload(fpsInfo: string): string {
 }
 
 /**
- * 產生可直接掃描及長按儲存的 PNG 二維碼圖片網址
- */
-export function buildQrImageUrl(data: string, size = 320): string {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&ecc=M&margin=8&data=${encodeURIComponent(data)}`;
-}
-
-/**
  * 壓縮主辦人上傳的二維碼圖片至適合存入 Realtime Database 的尺寸（最大 480px）
  */
 export function compressQrImageFile(file: File): Promise<string> {

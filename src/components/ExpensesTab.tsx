@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { QRCodeCanvas, QRCodeSVG } from 'qrcode.react';
+import { toast } from 'sonner';
 import {
   Plus,
   Trash2,
@@ -14,8 +16,11 @@ import {
   Upload,
   X,
   QrCode,
+  Download,
+  Image as ImageIcon,
 } from 'lucide-react';
 import type {
+  AppTheme,
   Expense,
   ExpenseCategory,
   HostPaymentProfile,
@@ -26,9 +31,10 @@ import type {
 import { generateId, getAllGuests } from '../lib/partyStore';
 import {
   buildFpsHkqrPayload,
-  buildQrImageUrl,
   compressQrImageFile,
 } from '../lib/paymentQr';
+import { fireConfetti } from '../lib/celebrate';
+import { ShareCardModal } from './ShareCardModal';
 import {
   buildWhatsAppSettlementText,
   calculateBalances,
@@ -42,6 +48,8 @@ import {
 interface ExpensesTabProps {
   party: Party;
   isAdmin: boolean;
+  shareUrl: string;
+  appTheme: AppTheme;
   hostPaymentProfile: HostPaymentProfile | null;
   onUpdateParty: (updated: Party) => Promise<void>;
   onSaveHostPaymentProfile: (profile: HostPaymentProfile) => Promise<void>;
@@ -67,6 +75,8 @@ type ActiveQrModal = 'payme' | 'fps' | null;
 export function ExpensesTab({
   party,
   isAdmin,
+  shareUrl,
+  appTheme,
   hostPaymentProfile,
   onUpdateParty,
   onSaveHostPaymentProfile,
@@ -128,22 +138,15 @@ export function ExpensesTab({
   const [savedPayInfo, setSavedPayInfo] = useState(false);
   const [copiedFps, setCopiedFps] = useState(false);
   const [activeQrModal, setActiveQrModal] = useState<ActiveQrModal>(null);
+  const [showSettlementCard, setShowSettlementCard] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
+  const modalQrCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const paymeQrSrc = useMemo(() => {
-    if (party.paymeQrImage) return party.paymeQrImage;
-    if (party.paymeLink?.trim()) return buildQrImageUrl(party.paymeLink.trim());
-    return '';
-  }, [party.paymeQrImage, party.paymeLink]);
-
-  const fpsQrSrc = useMemo(() => {
-    if (party.fpsQrImage) return party.fpsQrImage;
-    if (party.fpsInfo?.trim()) {
-      const payload = buildFpsHkqrPayload(party.fpsInfo.trim());
-      if (payload) return buildQrImageUrl(payload);
-    }
-    return '';
-  }, [party.fpsQrImage, party.fpsInfo]);
+  const paymeQrValue = party.paymeLink?.trim() ?? '';
+  const fpsQrValue = useMemo(() => {
+    if (!party.fpsInfo?.trim()) return '';
+    return buildFpsHkqrPayload(party.fpsInfo.trim());
+  }, [party.fpsInfo]);
 
   const totalSpent = useMemo(() => sumExpensesTotal(party.expenses), [party.expenses]);
 
@@ -190,10 +193,27 @@ export function ExpensesTab({
     try {
       await navigator.clipboard.writeText(party.fpsInfo.trim());
       setCopiedFps(true);
+      toast.success('已複製轉數快號碼');
       setTimeout(() => setCopiedFps(false), 2000);
     } catch {
-      // Ignore clipboard failure
+      toast.error('複製失敗，請手動複製');
     }
+  }
+
+  function handleDownloadModalQr(type: 'payme' | 'fps') {
+    const customImg = type === 'payme' ? party.paymeQrImage : party.fpsQrImage;
+    let dataUrl = customImg || '';
+    if (!dataUrl && modalQrCanvasRef.current) {
+      dataUrl = modalQrCanvasRef.current.toDataURL('image/png');
+    }
+    if (!dataUrl) return;
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = `${type === 'payme' ? 'payme' : 'fps'}_qr.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('已儲存二維碼圖片');
   }
 
   async function handleAddExpense(e: FormEvent) {
@@ -286,9 +306,11 @@ export function ExpensesTab({
       setAmount('');
       setCustomShares({});
       setExactAmounts({});
+      toast.success(`已新增開支「${newExpense.title}」`);
     } catch (err) {
       const detail = err instanceof Error ? err.message : '無法寫入雲端';
       setErrorMsg(`儲存開支失敗：${detail}`);
+      toast.error(`儲存開支失敗：${detail}`);
     }
   }
 
@@ -299,9 +321,11 @@ export function ExpensesTab({
         ...party,
         expenses: party.expenses.filter((e) => e.id !== expenseId),
       });
+      toast.success('已刪除開支');
     } catch (err) {
       const detail = err instanceof Error ? err.message : '無法寫入雲端';
       setErrorMsg(`刪除開支失敗：${detail}`);
+      toast.error(`刪除開支失敗：${detail}`);
     }
   }
 
@@ -342,9 +366,19 @@ export function ExpensesTab({
         ...party,
         settlementPayments: nextPayments,
       });
+      const allSettledNow =
+        transfers.length > 0 &&
+        transfers.every((t) => getTransferPaymentStatus(t, nextPayments[t.key]).state === 'paid');
+      if (nextPayments[transferKey].paid && allSettledNow) {
+        fireConfetti('settled');
+        toast.success('全員費用已全部結清！');
+      } else {
+        toast.success(nextPayments[transferKey].paid ? '已標記收款完成' : '已重設為待付');
+      }
     } catch (err) {
       const detail = err instanceof Error ? err.message : '無法寫入雲端';
       setErrorMsg(`更新收款狀態失敗：${detail}`);
+      toast.error(`更新收款狀態失敗：${detail}`);
     }
   }
 
@@ -367,10 +401,12 @@ export function ExpensesTab({
       }
       setSavedPayInfo(true);
       setEditingPayInfo(false);
+      toast.success(saveAsCloudDefault ? '收款資料已儲存並設為雲端預設' : '收款資料已更新');
       setTimeout(() => setSavedPayInfo(false), 2000);
     } catch (err) {
       const detail = err instanceof Error ? err.message : '無法寫入雲端';
       setQrUploadError(`儲存收款資料失敗：${detail}`);
+      toast.error(`儲存收款資料失敗：${detail}`);
     }
   }
 
@@ -391,10 +427,12 @@ export function ExpensesTab({
       setFpsQrImage(hostPaymentProfile.fpsQrImage ?? '');
       setSavedPayInfo(true);
       setEditingPayInfo(false);
+      toast.success('已套用雲端預設收款資料');
       setTimeout(() => setSavedPayInfo(false), 2000);
     } catch (err) {
       const detail = err instanceof Error ? err.message : '無法寫入雲端';
       setQrUploadError(`套用預設收款資料失敗：${detail}`);
+      toast.error(`套用預設收款資料失敗：${detail}`);
     }
   }
 
@@ -403,9 +441,10 @@ export function ExpensesTab({
     try {
       await navigator.clipboard.writeText(text);
       setCopiedSummary(true);
+      toast.success('已複製 WhatsApp 費用結算明細');
       setTimeout(() => setCopiedSummary(false), 2000);
     } catch {
-      // Ignore clipboard failure
+      toast.error('複製失敗，請手動複製');
     }
   }
 
@@ -458,18 +497,30 @@ export function ExpensesTab({
                     <QrCode className="h-3 w-3" /> PayMe
                   </span>
 
-                  {paymeQrSrc ? (
+                  {party.paymeQrImage || paymeQrValue ? (
                     <button
                       type="button"
                       onClick={() => setActiveQrModal('payme')}
                       title="點擊放大 PayMe 二維碼"
                       className="group mt-2.5 overflow-hidden rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-200/80 transition hover:scale-[1.02] hover:ring-brand-300"
                     >
-                      <img
-                        src={paymeQrSrc}
-                        alt="PayMe 收款二維碼"
-                        className="h-32 w-32 object-contain sm:h-36 sm:w-36"
-                      />
+                      {party.paymeQrImage ? (
+                        <img
+                          src={party.paymeQrImage}
+                          alt="PayMe 收款二維碼"
+                          className="h-32 w-32 object-contain sm:h-36 sm:w-36"
+                        />
+                      ) : (
+                        <div className="flex h-32 w-32 items-center justify-center rounded bg-white p-1 sm:h-36 sm:w-36">
+                          <QRCodeSVG
+                            value={paymeQrValue}
+                            size={132}
+                            level="M"
+                            includeMargin
+                            className="h-full w-full"
+                          />
+                        </div>
+                      )}
                       <span className="mt-1 block text-[10px] font-medium text-slate-400 group-hover:text-brand-600">
                         點擊放大二維碼
                       </span>
@@ -496,18 +547,30 @@ export function ExpensesTab({
                     <QrCode className="h-3 w-3" /> 轉數快 FPS
                   </span>
 
-                  {fpsQrSrc ? (
+                  {party.fpsQrImage || fpsQrValue ? (
                     <button
                       type="button"
                       onClick={() => setActiveQrModal('fps')}
                       title="點擊放大轉數快二維碼"
                       className="group mt-2.5 overflow-hidden rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-200/80 transition hover:scale-[1.02] hover:ring-indigo-300"
                     >
-                      <img
-                        src={fpsQrSrc}
-                        alt="轉數快 FPS 收款二維碼"
-                        className="h-32 w-32 object-contain sm:h-36 sm:w-36"
-                      />
+                      {party.fpsQrImage ? (
+                        <img
+                          src={party.fpsQrImage}
+                          alt="轉數快 FPS 收款二維碼"
+                          className="h-32 w-32 object-contain sm:h-36 sm:w-36"
+                        />
+                      ) : (
+                        <div className="flex h-32 w-32 items-center justify-center rounded bg-white p-1 sm:h-36 sm:w-36">
+                          <QRCodeSVG
+                            value={fpsQrValue}
+                            size={132}
+                            level="M"
+                            includeMargin
+                            className="h-full w-full"
+                          />
+                        </div>
+                      )}
                       <span className="mt-1 block text-[10px] font-medium text-slate-400 group-hover:text-indigo-600">
                         點擊放大二維碼
                       </span>
@@ -702,27 +765,38 @@ export function ExpensesTab({
             <Wallet className="h-4 w-4 text-brand-600" />
             最少轉帳結算與收款追蹤
           </h2>
-          {isAdmin ? (
-            <button
-              type="button"
-              onClick={handleCopySummary}
-              className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
-            >
-              {copiedSummary ? (
-                <>
-                  <Check className="h-3.5 w-3.5" /> 已複製 WhatsApp 結算
-                </>
-              ) : (
-                <>
-                  <Copy className="h-3.5 w-3.5" /> 複製 WhatsApp 結算
-                </>
-              )}
-            </button>
-          ) : (
-            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500">
-              僅供檢視
-            </span>
-          )}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {party.expenses.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => setShowSettlementCard(true)}
+                className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-brand-600 transition hover:bg-rose-100"
+              >
+                <ImageIcon className="h-3.5 w-3.5" /> 匯出結算圖
+              </button>
+            ) : null}
+            {isAdmin ? (
+              <button
+                type="button"
+                onClick={handleCopySummary}
+                className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+              >
+                {copiedSummary ? (
+                  <>
+                    <Check className="h-3.5 w-3.5" /> 已複製 WhatsApp 結算
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3.5 w-3.5" /> 複製 WhatsApp 結算
+                  </>
+                )}
+              </button>
+            ) : (
+              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500">
+                僅供檢視
+              </span>
+            )}
+          </div>
         </div>
 
         {transfers.length === 0 ? (
@@ -1088,16 +1162,42 @@ export function ExpensesTab({
               </button>
             </div>
 
-            <div className="mt-4 flex justify-center rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200/70">
-              <img
-                src={activeQrModal === 'payme' ? paymeQrSrc : fpsQrSrc}
-                alt={activeQrModal === 'payme' ? 'PayMe 收款二維碼' : '轉數快 FPS 收款二維碼'}
-                className="h-56 w-56 object-contain"
-              />
+            <div className="mt-4 flex justify-center rounded-2xl bg-white p-4 ring-1 ring-slate-200/70">
+              {activeQrModal === 'payme' ? (
+                party.paymeQrImage ? (
+                  <img
+                    src={party.paymeQrImage}
+                    alt="PayMe 收款二維碼"
+                    className="h-56 w-56 object-contain"
+                  />
+                ) : (
+                  <QRCodeCanvas
+                    ref={modalQrCanvasRef}
+                    value={paymeQrValue}
+                    size={224}
+                    level="M"
+                    includeMargin
+                  />
+                )
+              ) : party.fpsQrImage ? (
+                <img
+                  src={party.fpsQrImage}
+                  alt="轉數快 FPS 收款二維碼"
+                  className="h-56 w-56 object-contain"
+                />
+              ) : (
+                <QRCodeCanvas
+                  ref={modalQrCanvasRef}
+                  value={fpsQrValue}
+                  size={224}
+                  level="M"
+                  includeMargin
+                />
+              )}
             </div>
 
             <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
-              可直接掃描，或長按／截圖儲存二維碼後於{' '}
+              可直接掃描，或點下方下載二維碼後於{' '}
               {activeQrModal === 'payme' ? 'PayMe' : '銀行 App'} 匯入付款。
             </p>
 
@@ -1133,6 +1233,14 @@ export function ExpensesTab({
 
               <button
                 type="button"
+                onClick={() => handleDownloadModalQr(activeQrModal)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-slate-800"
+              >
+                <Download className="h-4 w-4" /> 儲存二維碼圖片
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setActiveQrModal(null)}
                 className="w-full rounded-2xl bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
               >
@@ -1141,6 +1249,17 @@ export function ExpensesTab({
             </div>
           </div>
         </div>
+      ) : null}
+
+      {showSettlementCard ? (
+        <ShareCardModal
+          mode="settlement"
+          party={party}
+          shareUrl={shareUrl}
+          appTheme={appTheme}
+          transfers={transfers}
+          onClose={() => setShowSettlementCard(false)}
+        />
       ) : null}
     </div>
   );

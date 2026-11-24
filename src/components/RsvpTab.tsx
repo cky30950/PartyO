@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import type { User } from 'firebase/auth';
+import { toast } from 'sonner';
 import {
   CheckCircle2,
   HelpCircle,
@@ -26,6 +27,7 @@ import {
   isHostGuest,
 } from '../lib/partyStore';
 import { PlaceAutocomplete } from './PlaceAutocomplete';
+import { fireConfetti } from '../lib/celebrate';
 
 interface RsvpTabProps {
   party: Party;
@@ -165,6 +167,7 @@ export function RsvpTab({
       ...party,
       guests: [hostGuest, ...party.guests],
     });
+    toast.success('已將搞手加回名單');
   }
 
   async function handleAdminAddGuest(e: FormEvent) {
@@ -189,6 +192,7 @@ export function RsvpTab({
     setAdminAddName('');
     setAdminAddNote('');
     setAdminAddStatus('going');
+    toast.success(`已新增「${trimmed}」至名單`);
   }
 
   async function handleSubmitSelfRsvp(e: FormEvent) {
@@ -217,10 +221,15 @@ export function RsvpTab({
         updatedAt: new Date().toISOString(),
       });
       setSelfSaved(true);
+      toast.success(nextApproval === 'approved' ? '已更新你的報名狀態' : '已提交報名申請，等待主辦人審核');
+      if (!myRsvp || selfStatus === 'going') {
+        fireConfetti('rsvp');
+      }
       setTimeout(() => setSelfSaved(false), 2000);
     } catch (err) {
       const detail = err instanceof Error ? err.message : '儲存報名狀態失敗';
       setSelfError(`更新失敗：${detail}`);
+      toast.error(`更新失敗：${detail}`);
     }
   }
 
@@ -256,6 +265,7 @@ export function RsvpTab({
       description: editDesc.trim(),
     });
     setEditingInfo(false);
+    toast.success('活動資料已更新');
   }
 
   const myApprovalStatus: ApprovalStatus | null = myRsvp

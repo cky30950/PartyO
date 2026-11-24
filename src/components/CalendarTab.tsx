@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Calendar, Download, ExternalLink, Copy, Check, MessageCircle, MapPin } from 'lucide-react';
-import type { Party } from '../types/party';
+import { toast } from 'sonner';
+import { Calendar, Download, ExternalLink, Copy, Check, MessageCircle, MapPin, Image as ImageIcon } from 'lucide-react';
+import type { AppTheme, Party } from '../types/party';
 import {
   buildGoogleCalendarUrl,
   buildGoogleMapsUrl,
@@ -9,14 +10,17 @@ import {
   formatPartyDateTime,
   hasEndTime,
 } from '../lib/calendar';
+import { ShareCardModal } from './ShareCardModal';
 
 interface CalendarTabProps {
   party: Party;
   shareUrl: string;
+  appTheme: AppTheme;
 }
 
-export function CalendarTab({ party, shareUrl }: CalendarTabProps) {
+export function CalendarTab({ party, shareUrl, appTheme }: CalendarTabProps) {
   const [copiedKey, setCopiedKey] = useState<'link' | 'whatsapp' | null>(null);
+  const [showInviteCard, setShowInviteCard] = useState(false);
 
   const gcalUrl = buildGoogleCalendarUrl(party, shareUrl);
   const whatsappText = buildWhatsAppInviteText(party, shareUrl);
@@ -26,9 +30,10 @@ export function CalendarTab({ party, shareUrl }: CalendarTabProps) {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedKey(key);
+      toast.success(key === 'whatsapp' ? '已複製 WhatsApp 邀請文字' : '已複製派對連結');
       setTimeout(() => setCopiedKey(null), 2000);
     } catch {
-      // Fallback ignored
+      toast.error('複製失敗，請手動選取複製');
     }
   }
 
@@ -76,7 +81,10 @@ export function CalendarTab({ party, shareUrl }: CalendarTabProps) {
         <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
           <button
             type="button"
-            onClick={() => downloadICS(party, shareUrl)}
+            onClick={() => {
+              downloadICS(party, shareUrl);
+              toast.success('已下載 .ics 日曆檔');
+            }}
             className="flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-semibold text-white transition hover:bg-slate-800"
           >
             <Download className="h-4 w-4" />
@@ -97,13 +105,20 @@ export function CalendarTab({ party, shareUrl }: CalendarTabProps) {
 
       {/* WhatsApp 邀請訊息產生器 */}
       <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-sm font-bold text-slate-900">WhatsApp 群組邀請範本</h2>
             <p className="mt-0.5 text-xs text-slate-500">
-              已自動附上活動詳情、RSVP 連結及 Google Calendar 一鍵加入連結。
+              已自動附上活動詳情、報名短連結及 Google Calendar 一鍵加入連結。
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => setShowInviteCard(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-700"
+          >
+            <ImageIcon className="h-3.5 w-3.5" /> 匯出邀請卡圖片
+          </button>
         </div>
 
         <pre className="mt-3 overflow-x-auto whitespace-pre-wrap rounded-2xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-700 ring-1 ring-slate-200/70">
@@ -154,6 +169,16 @@ export function CalendarTab({ party, shareUrl }: CalendarTabProps) {
           </button>
         </div>
       </section>
+
+      {showInviteCard ? (
+        <ShareCardModal
+          mode="invite"
+          party={party}
+          shareUrl={shareUrl}
+          appTheme={appTheme}
+          onClose={() => setShowInviteCard(false)}
+        />
+      ) : null}
     </div>
   );
 }

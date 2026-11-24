@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import type { User } from 'firebase/auth';
+import { toast } from 'sonner';
 import {
   ArrowLeft,
   Calendar,
@@ -120,9 +121,10 @@ export function PartyDashboard({
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopiedLink(true);
+      toast.success('已複製派對短連結');
       setTimeout(() => setCopiedLink(false), 2000);
     } catch {
-      // Ignore clipboard failure
+      toast.error('複製連結失敗');
     }
   }
 
@@ -132,8 +134,10 @@ export function PartyDashboard({
       const ok = window.confirm('確定要手動將此活動標記為「已結束」嗎？\n它會移至首頁的已結束區域，之後仍可隨時重新開啟。');
       if (!ok) return;
       await onUpdateParty({ ...party, manuallyEnded: true });
+      toast.success('已標記活動為結束');
     } else {
       await onUpdateParty({ ...party, manuallyEnded: false });
+      toast.success('已重新開啟活動');
     }
   }
 
@@ -147,6 +151,7 @@ export function PartyDashboard({
       announcementUpdatedAt: text ? new Date().toISOString() : '',
     });
     setEditingAnnouncement(false);
+    toast.success(text ? '置頂公告已即時發佈' : '已清除置頂公告');
   }
 
   async function handleClearAnnouncement() {
@@ -158,6 +163,7 @@ export function PartyDashboard({
     });
     setAnnouncementDraft('');
     setEditingAnnouncement(false);
+    toast.success('已清除置頂公告');
   }
 
   return (
@@ -240,7 +246,7 @@ export function PartyDashboard({
                         onBack?.();
                       } catch (err) {
                         const detail = err instanceof Error ? err.message : '刪除失敗';
-                        window.alert(`刪除雲端資料失敗：${detail}`);
+                        toast.error(`刪除雲端資料失敗：${detail}`);
                       }
                     }}
                     className="inline-flex items-center justify-center rounded-xl p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
@@ -460,12 +466,14 @@ export function PartyDashboard({
           />
         )}
         {activeTab === 'calendar' && (
-          <CalendarTab party={party} shareUrl={shareUrl} />
+          <CalendarTab party={party} shareUrl={shareUrl} appTheme={appTheme} />
         )}
         {activeTab === 'expenses' && (
           <ExpensesTab
             party={party}
             isAdmin={isAdmin}
+            shareUrl={shareUrl}
+            appTheme={appTheme}
             hostPaymentProfile={hostPaymentProfile}
             onUpdateParty={onUpdateParty}
             onSaveHostPaymentProfile={onSaveHostPaymentProfile}
