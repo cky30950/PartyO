@@ -121,7 +121,7 @@ export function ShareCardModal({
       >
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-bold text-slate-900">
-            {mode === 'invite' ? '派對邀請卡預覽' : '費用結算圖預覽'}（{t.name}）
+            {mode === 'invite' ? '派對邀請卡預覽' : '費用結算圖預覽'}
           </h3>
           <button
             type="button"
@@ -159,9 +159,6 @@ export function ShareCardModal({
                 style={{ backgroundColor: t.badgeBg, color: t.badgeText }}
               >
                 {t.emoji} {mode === 'invite' ? 'PARTY INVITE' : 'GOLD LEDGER'}
-              </span>
-              <span className="font-pixel text-[10px] font-bold" style={{ color: t.inkMuted }}>
-                {t.name}
               </span>
             </div>
 
