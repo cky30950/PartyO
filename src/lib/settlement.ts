@@ -149,12 +149,15 @@ export function calculateBalances(guests: Guest[], expenses: Expense[]): GuestBa
     const totalCents = toCents(exp.amount);
     if (totalCents <= 0) continue;
 
+    const splits = calculateExpenseSplitsCents(exp);
+    // 尚未設定分攤成員（待分攤）的開支暫不計入個人結算淨額
+    if (Object.keys(splits).length === 0) continue;
+
     if (!map.has(exp.paidByGuestId)) {
       map.set(exp.paidByGuestId, { name: '未知成員', paidCents: 0, owedCents: 0 });
     }
     map.get(exp.paidByGuestId)!.paidCents += totalCents;
 
-    const splits = calculateExpenseSplitsCents(exp);
     for (const [guestId, shareCents] of Object.entries(splits)) {
       if (!map.has(guestId)) {
         map.set(guestId, { name: '未知成員', paidCents: 0, owedCents: 0 });
@@ -228,11 +231,17 @@ export function buildWhatsAppSettlementText(
   payments: Record<string, SettlementPayment>
 ): string {
   const total = sumExpensesTotal(party.expenses);
+  const unassigned = party.expenses.filter((e) => e.participantIds.length === 0);
   const lines: string[] = [
     `💰 *${party.title} — 費用結算明細*`,
     `總開支：${formatMoney(total, party.currency)}（共 ${party.expenses.length} 筆）`,
-    '',
   ];
+  if (unassigned.length > 0) {
+    lines.push(
+      `⏳ 其中 ${unassigned.length} 筆（${formatMoney(sumExpensesTotal(unassigned), party.currency)}）尚未設定分攤成員，暫未計入以下轉帳`
+    );
+  }
+  lines.push('');
 
   if (transfers.length === 0) {
     lines.push('✅ 所有人已經計清，無需轉帳！');

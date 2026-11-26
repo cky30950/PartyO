@@ -91,6 +91,7 @@ export function ExpensesTab({
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<ExpenseCategory>('food');
   const [paidBy, setPaidBy] = useState(allGuests[0]?.id ?? '');
+  const [assignSplitNow, setAssignSplitNow] = useState(false);
   const [splitType, setSplitType] = useState<SplitType>('equal');
   const [selectedIds, setSelectedIds] = useState<string[]>(() =>
     activeGuests.map((g) => g.id)
@@ -99,6 +100,14 @@ export function ExpensesTab({
   const [customShares, setCustomShares] = useState<Record<string, string>>({});
   const [exactAmounts, setExactAmounts] = useState<Record<string, string>>({});
   const [errorMsg, setErrorMsg] = useState('');
+
+  // 事後設定／編輯單筆開支的分攤成員
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+  const [editSplitType, setEditSplitType] = useState<SplitType>('equal');
+  const [editSelectedIds, setEditSelectedIds] = useState<string[]>([]);
+  const [editCustomShares, setEditCustomShares] = useState<Record<string, string>>({});
+  const [editExactAmounts, setEditExactAmounts] = useState<Record<string, string>>({});
+  const [editErrorMsg, setEditErrorMsg] = useState('');
 
   // 同步參加者名單異動：自動移除已刪除成員，並自動勾選新加入的出席成員
   useEffect(() => {
@@ -149,6 +158,14 @@ export function ExpensesTab({
   }, [party.fpsInfo]);
 
   const totalSpent = useMemo(() => sumExpensesTotal(party.expenses), [party.expenses]);
+  const unassignedExpenses = useMemo(
+    () => party.expenses.filter((e) => e.participantIds.length === 0),
+    [party.expenses]
+  );
+  const unassignedTotal = useMemo(
+    () => sumExpensesTotal(unassignedExpenses),
+    [unassignedExpenses]
+  );
 
   const balances = useMemo(
     () => calculateBalances(allGuests, party.expenses),
@@ -234,53 +251,57 @@ export function ExpensesTab({
       setErrorMsg('請先在「活動與報名」新增至少一位參加者');
       return;
     }
-    const validGuestIds = new Set(allGuests.map((g) => g.id));
-    const cleanSelectedIds = Array.from(new Set(selectedIds.filter((id) => validGuestIds.has(id))));
-    if (cleanSelectedIds.length === 0) {
-      setErrorMsg('請至少選擇一位分攤成員');
-      return;
-    }
 
     const totalCents = toCents(numAmount);
+    let cleanSelectedIds: string[] = [];
     let parsedShares: Record<string, number> | undefined;
     let parsedExact: Record<string, number> | undefined;
 
-    if (splitType === 'custom_shares') {
-      parsedShares = {};
-      let sumShares = 0;
-      for (const id of cleanSelectedIds) {
-        const val = Number(customShares[id] ?? '1');
-        if (!Number.isFinite(val) || val < 0) {
-          setErrorMsg('份數比例必須為 0 或以上數字');
-          return;
-        }
-        parsedShares[id] = val;
-        sumShares += val;
-      }
-      if (sumShares <= 0) {
-        setErrorMsg('總份數必須大於 0');
+    if (assignSplitNow) {
+      const validGuestIds = new Set(allGuests.map((g) => g.id));
+      cleanSelectedIds = Array.from(new Set(selectedIds.filter((id) => validGuestIds.has(id))));
+      if (cleanSelectedIds.length === 0) {
+        setErrorMsg('請至少選擇一位分攤成員，或改選「先記帳（稍後再分攤）」');
         return;
       }
-    }
 
-    if (splitType === 'exact') {
-      parsedExact = {};
-      let sumExactCents = 0;
-      for (const id of cleanSelectedIds) {
-        const val = Number(exactAmounts[id] ?? '0');
-        if (!Number.isFinite(val) || val < 0) {
-          setErrorMsg('自訂金額必須為 0 或以上數字');
+      if (splitType === 'custom_shares') {
+        parsedShares = {};
+        let sumShares = 0;
+        for (const id of cleanSelectedIds) {
+          const val = Number(customShares[id] ?? '1');
+          if (!Number.isFinite(val) || val < 0) {
+            setErrorMsg('份數比例必須為 0 或以上數字');
+            return;
+          }
+          parsedShares[id] = val;
+          sumShares += val;
+        }
+        if (sumShares <= 0) {
+          setErrorMsg('總份數必須大於 0');
           return;
         }
-        const valCents = toCents(val);
-        parsedExact[id] = valCents / 100;
-        sumExactCents += valCents;
       }
-      if (sumExactCents !== totalCents) {
-        setErrorMsg(
-          `自訂金額總和（${formatMoney(sumExactCents / 100, party.currency)}）必須完全等於總額（${formatMoney(totalCents / 100, party.currency)}）`
-        );
-        return;
+
+      if (splitType === 'exact') {
+        parsedExact = {};
+        let sumExactCents = 0;
+        for (const id of cleanSelectedIds) {
+          const val = Number(exactAmounts[id] ?? '0');
+          if (!Number.isFinite(val) || val < 0) {
+            setErrorMsg('自訂金額必須為 0 或以上數字');
+            return;
+          }
+          const valCents = toCents(val);
+          parsedExact[id] = valCents / 100;
+          sumExactCents += valCents;
+        }
+        if (sumExactCents !== totalCents) {
+          setErrorMsg(
+            `自訂金額總和（${formatMoney(sumExactCents / 100, party.currency)}）必須完全等於總額（${formatMoney(totalCents / 100, party.currency)}）`
+          );
+          return;
+        }
       }
     }
 
@@ -289,7 +310,7 @@ export function ExpensesTab({
       title: title.trim(),
       amount: totalCents / 100,
       paidByGuestId: payerId,
-      splitType,
+      splitType: assignSplitNow ? splitType : 'equal',
       participantIds: cleanSelectedIds,
       ...(parsedShares ? { customShares: parsedShares } : {}),
       ...(parsedExact ? { exactAmounts: parsedExact } : {}),
@@ -306,11 +327,136 @@ export function ExpensesTab({
       setAmount('');
       setCustomShares({});
       setExactAmounts({});
-      toast.success(`已新增開支「${newExpense.title}」`);
+      toast.success(
+        assignSplitNow
+          ? `已新增開支「${newExpense.title}」`
+          : `已記帳「${newExpense.title}」（稍後可隨時設定分攤成員）`
+      );
     } catch (err) {
       const detail = err instanceof Error ? err.message : '無法寫入雲端';
       setErrorMsg(`儲存開支失敗：${detail}`);
       toast.error(`儲存開支失敗：${detail}`);
+    }
+  }
+
+  function openSplitEditor(exp: Expense) {
+    const validGuestIds = new Set(allGuests.map((g) => g.id));
+    const existingValid = exp.participantIds.filter((id) => validGuestIds.has(id));
+    setEditingExpenseId(exp.id);
+    setEditSplitType(exp.splitType ?? 'equal');
+    setEditSelectedIds(
+      existingValid.length > 0 ? existingValid : activeGuests.map((g) => g.id)
+    );
+    const nextShares: Record<string, string> = {};
+    if (exp.customShares) {
+      for (const [k, v] of Object.entries(exp.customShares)) {
+        nextShares[k] = String(v);
+      }
+    }
+    setEditCustomShares(nextShares);
+    const nextExact: Record<string, string> = {};
+    if (exp.exactAmounts) {
+      for (const [k, v] of Object.entries(exp.exactAmounts)) {
+        nextExact[k] = String(v);
+      }
+    }
+    setEditExactAmounts(nextExact);
+    setEditErrorMsg('');
+  }
+
+  function toggleEditParticipant(id: string) {
+    setEditSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  }
+
+  async function handleSaveExpenseSplit(exp: Expense, clearSplit = false) {
+    setEditErrorMsg('');
+    const totalCents = toCents(exp.amount);
+    let cleanIds: string[] = [];
+    let parsedShares: Record<string, number> | undefined;
+    let parsedExact: Record<string, number> | undefined;
+
+    if (!clearSplit) {
+      const validGuestIds = new Set(allGuests.map((g) => g.id));
+      cleanIds = Array.from(new Set(editSelectedIds.filter((id) => validGuestIds.has(id))));
+      if (cleanIds.length === 0) {
+        setEditErrorMsg('請至少選擇一位分攤成員，或點「改回待分攤」');
+        return;
+      }
+
+      if (editSplitType === 'custom_shares') {
+        parsedShares = {};
+        let sumShares = 0;
+        for (const id of cleanIds) {
+          const val = Number(editCustomShares[id] ?? '1');
+          if (!Number.isFinite(val) || val < 0) {
+            setEditErrorMsg('份數比例必須為 0 或以上數字');
+            return;
+          }
+          parsedShares[id] = val;
+          sumShares += val;
+        }
+        if (sumShares <= 0) {
+          setEditErrorMsg('總份數必須大於 0');
+          return;
+        }
+      }
+
+      if (editSplitType === 'exact') {
+        parsedExact = {};
+        let sumExactCents = 0;
+        for (const id of cleanIds) {
+          const val = Number(editExactAmounts[id] ?? '0');
+          if (!Number.isFinite(val) || val < 0) {
+            setEditErrorMsg('自訂金額必須為 0 或以上數字');
+            return;
+          }
+          const valCents = toCents(val);
+          parsedExact[id] = valCents / 100;
+          sumExactCents += valCents;
+        }
+        if (sumExactCents !== totalCents) {
+          setEditErrorMsg(
+            `自訂金額總和（${formatMoney(sumExactCents / 100, party.currency)}）必須完全等於總額（${formatMoney(totalCents / 100, party.currency)}）`
+          );
+          return;
+        }
+      }
+    }
+
+    const updatedExpenses = party.expenses.map((item) => {
+      if (item.id !== exp.id) return item;
+      const base: Expense = {
+        id: item.id,
+        title: item.title,
+        amount: item.amount,
+        paidByGuestId: item.paidByGuestId,
+        splitType: clearSplit ? 'equal' : editSplitType,
+        participantIds: cleanIds,
+        category: item.category,
+        createdAt: item.createdAt,
+      };
+      if (parsedShares) base.customShares = parsedShares;
+      if (parsedExact) base.exactAmounts = parsedExact;
+      return base;
+    });
+
+    try {
+      await onUpdateParty({
+        ...party,
+        expenses: updatedExpenses,
+      });
+      setEditingExpenseId(null);
+      toast.success(
+        clearSplit
+          ? `已將「${exp.title}」改回待分攤`
+          : `已更新「${exp.title}」的分攤設定`
+      );
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : '無法寫入雲端';
+      setEditErrorMsg(`更新分攤失敗：${detail}`);
+      toast.error(`更新分攤失敗：${detail}`);
     }
   }
 
@@ -799,9 +945,19 @@ export function ExpensesTab({
           </div>
         </div>
 
+        {unassignedExpenses.length > 0 ? (
+          <div className="mt-3 rounded-2xl bg-amber-50/90 px-3.5 py-2.5 text-xs text-amber-900 ring-1 ring-amber-200">
+            尚有 <strong>{unassignedExpenses.length} 筆</strong>開支（共{' '}
+            <strong>{formatMoney(unassignedTotal, party.currency)}</strong>
+            ）尚未設定分攤成員，暫未計入下方轉帳；可隨時在下方「開支紀錄」點「設定分攤」。
+          </div>
+        ) : null}
+
         {transfers.length === 0 ? (
           <p className="mt-3 rounded-2xl bg-slate-50 p-4 text-center text-xs text-slate-500">
-            暫時未有待結算轉帳。新增開支後會自動計算最少轉帳方案。
+            {unassignedExpenses.length > 0
+              ? '目前開支均為「待分攤」，設定分攤成員後將自動計算最少轉帳方案。'
+              : '暫時未有待結算轉帳。新增開支並設定分攤後會自動計算最少轉帳方案。'}
           </p>
         ) : (
           <div className="mt-3 space-y-2.5">
@@ -982,103 +1138,139 @@ export function ExpensesTab({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600">分攤方式</label>
+                <label className="block text-xs font-semibold text-slate-600">分攤設定</label>
                 <div className="mt-1 flex gap-1.5">
-                  {(['equal', 'custom_shares', 'exact'] as SplitType[]).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setSplitType(t)}
-                      className={`flex-1 rounded-xl px-2 py-2 text-xs font-semibold transition ring-1 ${
-                        splitType === t
-                          ? 'bg-brand-600 text-white ring-brand-600'
-                          : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      {SPLIT_LABELS[t]}
-                    </button>
-                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setAssignSplitNow(false)}
+                    className={`flex-1 rounded-xl px-2.5 py-2 text-xs font-semibold transition ring-1 ${
+                      !assignSplitNow
+                        ? 'bg-brand-600 text-white ring-brand-600'
+                        : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    先記帳（稍後再分攤）
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAssignSplitNow(true)}
+                    className={`flex-1 rounded-xl px-2.5 py-2 text-xs font-semibold transition ring-1 ${
+                      assignSplitNow
+                        ? 'bg-brand-600 text-white ring-brand-600'
+                        : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    立即分攤成員
+                  </button>
                 </div>
               </div>
             </div>
 
-            {/* 選擇分攤成員（支援剔除不飲酒／遲到者） */}
-            <div>
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-600">
-                  分攤成員（可剔除唔飲酒／遲到人士）
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setSelectedIds(allGuests.map((g) => g.id))}
-                  className="text-[11px] font-semibold text-brand-600 hover:underline"
-                >
-                  全選
-                </button>
-              </div>
+            {assignSplitNow ? (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600">分攤方式</label>
+                  <div className="mt-1 flex gap-1.5">
+                    {(['equal', 'custom_shares', 'exact'] as SplitType[]).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setSplitType(t)}
+                        className={`flex-1 rounded-xl px-2 py-2 text-xs font-semibold transition ring-1 ${
+                          splitType === t
+                            ? 'bg-brand-600 text-white ring-brand-600'
+                            : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {SPLIT_LABELS[t]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-              <div className="mt-2 space-y-1.5">
-                {allGuests.map((g) => {
-                  const checked = selectedIds.includes(g.id);
-                  return (
-                    <div
-                      key={g.id}
-                      className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-xs ring-1 transition ${
-                        checked
-                          ? 'bg-rose-50/50 ring-brand-200'
-                          : 'bg-slate-50 text-slate-400 ring-slate-200/70'
-                      }`}
+                {/* 選擇分攤成員（支援剔除不飲酒／遲到者） */}
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-600">
+                      分攤成員（可剔除唔飲酒／遲到人士）
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedIds(allGuests.map((g) => g.id))}
+                      className="text-[11px] font-semibold text-brand-600 hover:underline"
                     >
-                      <label className="flex flex-1 cursor-pointer items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleParticipant(g.id)}
-                          className="h-4 w-4 accent-brand-600"
-                        />
-                        <span className="font-medium text-slate-800">{g.name}</span>
-                        {g.note ? (
-                          <span className="truncate text-[11px] text-slate-400">({g.note})</span>
-                        ) : null}
-                      </label>
+                      全選
+                    </button>
+                  </div>
 
-                      {checked && splitType === 'custom_shares' && (
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            step="0.5"
-                            min="0"
-                            value={customShares[g.id] ?? '1'}
-                            onChange={(e) =>
-                              setCustomShares((prev) => ({ ...prev, [g.id]: e.target.value }))
-                            }
-                            className="w-16 rounded-lg border border-slate-200 bg-white px-2 py-1 text-right text-xs text-slate-900"
-                          />
-                          <span className="text-[11px] text-slate-500">份</span>
-                        </div>
-                      )}
+                  <div className="mt-2 space-y-1.5">
+                    {allGuests.map((g) => {
+                      const checked = selectedIds.includes(g.id);
+                      return (
+                        <div
+                          key={g.id}
+                          className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-xs ring-1 transition ${
+                            checked
+                              ? 'bg-rose-50/50 ring-brand-200'
+                              : 'bg-slate-50 text-slate-400 ring-slate-200/70'
+                          }`}
+                        >
+                          <label className="flex flex-1 cursor-pointer items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleParticipant(g.id)}
+                              className="h-4 w-4 accent-brand-600"
+                            />
+                            <span className="font-medium text-slate-800">{g.name}</span>
+                            {g.note ? (
+                              <span className="truncate text-[11px] text-slate-400">({g.note})</span>
+                            ) : null}
+                          </label>
 
-                      {checked && splitType === 'exact' && (
-                        <div className="flex items-center gap-1">
-                          <span className="text-[11px] text-slate-500">{party.currency}</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={exactAmounts[g.id] ?? ''}
-                            onChange={(e) =>
-                              setExactAmounts((prev) => ({ ...prev, [g.id]: e.target.value }))
-                            }
-                            placeholder="0"
-                            className="w-20 rounded-lg border border-slate-200 bg-white px-2 py-1 text-right text-xs text-slate-900"
-                          />
+                          {checked && splitType === 'custom_shares' && (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                step="0.5"
+                                min="0"
+                                value={customShares[g.id] ?? '1'}
+                                onChange={(e) =>
+                                  setCustomShares((prev) => ({ ...prev, [g.id]: e.target.value }))
+                                }
+                                className="w-16 rounded-lg border border-slate-200 bg-white px-2 py-1 text-right text-xs text-slate-900"
+                              />
+                              <span className="text-[11px] text-slate-500">份</span>
+                            </div>
+                          )}
+
+                          {checked && splitType === 'exact' && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-[11px] text-slate-500">{party.currency}</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={exactAmounts[g.id] ?? ''}
+                                onChange={(e) =>
+                                  setExactAmounts((prev) => ({ ...prev, [g.id]: e.target.value }))
+                                }
+                                placeholder="0"
+                                className="w-20 rounded-lg border border-slate-200 bg-white px-2 py-1 text-right text-xs text-slate-900"
+                              />
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p className="rounded-xl bg-slate-50 px-3 py-2 text-[11px] text-slate-500">
+                此開支會先記入活動總開支並標記為「待分攤」，待確認出席及分攤情況後，再於下方開支紀錄隨時設定成員。
+              </p>
+            )}
 
             {errorMsg ? <p className="text-xs font-medium text-rose-600">{errorMsg}</p> : null}
 
@@ -1086,7 +1278,7 @@ export function ExpensesTab({
               type="submit"
               className="w-full rounded-2xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700"
             >
-              新增開支並即時更新結算
+              {assignSplitNow ? '新增開支並即時更新結算' : '新增開支（稍後再分攤）'}
             </button>
           </form>
         </section>
@@ -1101,37 +1293,214 @@ export function ExpensesTab({
           <p className="mt-3 text-center text-xs text-slate-400">暫未有開支紀錄</p>
         ) : (
           <div className="mt-3 divide-y divide-slate-100">
-            {party.expenses.map((exp) => (
-              <div key={exp.id} className="flex items-start justify-between gap-3 py-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
-                      {CATEGORY_LABELS[exp.category]}
-                    </span>
-                    <p className="truncate text-sm font-semibold text-slate-900">{exp.title}</p>
+            {party.expenses.map((exp) => {
+              const isUnassigned = exp.participantIds.length === 0;
+              const isEditingThis = editingExpenseId === exp.id;
+              return (
+                <div key={exp.id} className="py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                          {CATEGORY_LABELS[exp.category]}
+                        </span>
+                        <p className="truncate text-sm font-semibold text-slate-900">{exp.title}</p>
+                        {isUnassigned ? (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                            待分攤
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {guestNameById(exp.paidByGuestId)} 墊付 ·{' '}
+                        {isUnassigned
+                          ? '尚未設定分攤成員'
+                          : `${SPLIT_LABELS[exp.splitType]}（${exp.participantIds.length} 人分攤）`}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <span className="text-sm font-bold text-slate-900">
+                        {formatMoney(exp.amount, party.currency)}
+                      </span>
+                      {isAdmin ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              isEditingThis ? setEditingExpenseId(null) : openSplitEditor(exp)
+                            }
+                            className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
+                              isUnassigned
+                                ? 'bg-amber-500 text-white hover:bg-amber-600'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            {isEditingThis ? '收起' : isUnassigned ? '設定分攤' : '編輯分攤'}
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="刪除開支"
+                            onClick={() => handleDeleteExpense(exp.id)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-rose-600"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {guestNameById(exp.paidByGuestId)} 墊付 · {SPLIT_LABELS[exp.splitType]}（
-                    {exp.participantIds.length} 人分攤）
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <span className="text-sm font-bold text-slate-900">
-                    {formatMoney(exp.amount, party.currency)}
-                  </span>
-                  {isAdmin ? (
-                    <button
-                      type="button"
-                      aria-label="刪除開支"
-                      onClick={() => handleDeleteExpense(exp.id)}
-                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-rose-600"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+
+                  {isAdmin && isEditingThis ? (
+                    <div className="mt-3 space-y-3 rounded-2xl bg-slate-50 p-3.5 ring-1 ring-slate-200/80">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600">分攤方式</label>
+                        <div className="mt-1 flex gap-1.5">
+                          {(['equal', 'custom_shares', 'exact'] as SplitType[]).map((t) => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => setEditSplitType(t)}
+                              className={`flex-1 rounded-xl px-2 py-1.5 text-xs font-semibold transition ring-1 ${
+                                editSplitType === t
+                                  ? 'bg-brand-600 text-white ring-brand-600'
+                                  : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-100'
+                              }`}
+                            >
+                              {SPLIT_LABELS[t]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between gap-2">
+                          <label className="text-xs font-semibold text-slate-600">
+                            選擇分攤成員（已選 {editSelectedIds.length} 人）
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setEditSelectedIds(activeGuests.map((g) => g.id))}
+                              className="text-[11px] font-semibold text-brand-600 hover:underline"
+                            >
+                              全選出席
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditSelectedIds(allGuests.map((g) => g.id))}
+                              className="text-[11px] font-semibold text-slate-500 hover:underline"
+                            >
+                              全選全部
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="mt-2 space-y-1.5">
+                          {allGuests.map((g) => {
+                            const checked = editSelectedIds.includes(g.id);
+                            return (
+                              <div
+                                key={g.id}
+                                className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-xs ring-1 transition ${
+                                  checked
+                                    ? 'bg-white ring-brand-200'
+                                    : 'bg-slate-100/70 text-slate-400 ring-slate-200/60'
+                                }`}
+                              >
+                                <label className="flex flex-1 cursor-pointer items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleEditParticipant(g.id)}
+                                    className="h-4 w-4 accent-brand-600"
+                                  />
+                                  <span className="font-medium text-slate-800">{g.name}</span>
+                                </label>
+
+                                {checked && editSplitType === 'custom_shares' && (
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="number"
+                                      step="0.5"
+                                      min="0"
+                                      value={editCustomShares[g.id] ?? '1'}
+                                      onChange={(e) =>
+                                        setEditCustomShares((prev) => ({
+                                          ...prev,
+                                          [g.id]: e.target.value,
+                                        }))
+                                      }
+                                      className="w-16 rounded-lg border border-slate-200 bg-white px-2 py-1 text-right text-xs text-slate-900"
+                                    />
+                                    <span className="text-[11px] text-slate-500">份</span>
+                                  </div>
+                                )}
+
+                                {checked && editSplitType === 'exact' && (
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[11px] text-slate-500">
+                                      {party.currency}
+                                    </span>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      value={editExactAmounts[g.id] ?? ''}
+                                      onChange={(e) =>
+                                        setEditExactAmounts((prev) => ({
+                                          ...prev,
+                                          [g.id]: e.target.value,
+                                        }))
+                                      }
+                                      placeholder="0"
+                                      className="w-20 rounded-lg border border-slate-200 bg-white px-2 py-1 text-right text-xs text-slate-900"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {editErrorMsg ? (
+                        <p className="text-xs font-medium text-rose-600">{editErrorMsg}</p>
+                      ) : null}
+
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                        {!isUnassigned ? (
+                          <button
+                            type="button"
+                            onClick={() => handleSaveExpenseSplit(exp, true)}
+                            className="text-xs font-medium text-slate-500 hover:text-rose-600 hover:underline"
+                          >
+                            改回待分攤
+                          </button>
+                        ) : (
+                          <span />
+                        )}
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEditingExpenseId(null)}
+                            className="rounded-xl px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200/70"
+                          >
+                            取消
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveExpenseSplit(exp, false)}
+                            className="rounded-xl bg-brand-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
+                          >
+                            儲存分攤並更新結算
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   ) : null}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
