@@ -697,7 +697,7 @@ export function RsvpTab({
                 type="text"
                 value={adminAddNote}
                 onChange={(e) => setAdminAddNote(e.target.value)}
-                placeholder="備註（例如：唔飲酒、8點半先到）"
+                placeholder="備註（例如：不吃什麼、對什麼敏感、唔飲酒、8點半先到）"
                 className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
               />
             </div>
@@ -832,7 +832,7 @@ export function RsvpTab({
                 type="text"
                 value={selfNote}
                 onChange={(e) => setSelfNote(e.target.value)}
-                placeholder="其他備註（選填，例如：唔飲酒、8點半先到）"
+                placeholder="其他備註（選填，例如：不吃什麼、對什麼敏感、唔飲酒、8點半先到）"
                 className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 sm:col-span-2"
               />
             </div>
@@ -946,7 +946,7 @@ export function RsvpTab({
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <p className="truncate text-sm font-semibold text-slate-900">{guest.name}</p>
-                    {guest.identityOrIg?.trim() ? (
+                    {isAdmin && guest.identityOrIg?.trim() ? (
                       <span
                         title={guest.identityOrIg.trim()}
                         className="max-w-[180px] truncate rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600"
