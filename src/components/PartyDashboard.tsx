@@ -350,7 +350,7 @@ export function PartyDashboard({
           </div>
         ) : null}
 
-        {!ended ? (
+        {!ended && activeTab === 'rsvp' ? (
           <PushReminderBar
             partyId={party.id}
             isAdmin={isAdmin}
