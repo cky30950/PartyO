@@ -1,0 +1,16 @@
+name = "partyo-media-api"
+main = "src/index.ts"
+compatibility_date = "2025-10-01"
+
+[[r2_buckets]]
+binding = "PARTYO_BUCKET"
+bucket_name = "partyo-media"
+
+[ai]
+binding = "AI"
+
+[vars]
+FIREBASE_PROJECT_ID = "cheungec-ea477"
+ADMIN_EMAILS = "cky30950@gmail.com"
+WORKERS_AI_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct"
+ALLOWED_ORIGIN = "*"
