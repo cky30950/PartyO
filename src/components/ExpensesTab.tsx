@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import {
   Plus,
   Trash2,
+  ArrowLeft,
   ArrowRight,
   CheckCircle2,
   Clock,
@@ -73,6 +74,7 @@ const SPLIT_LABELS: Record<SplitType, string> = {
 };
 
 type ActiveQrModal = 'payme' | 'fps' | 'fps-personal' | null;
+type PersonalSettleStep = 'idle' | 'choose' | 'payme' | 'fps';
 
 export function ExpensesTab({
   party,
@@ -150,6 +152,7 @@ export function ExpensesTab({
   const [savedPayInfo, setSavedPayInfo] = useState(false);
   const [copiedFps, setCopiedFps] = useState(false);
   const [activeQrModal, setActiveQrModal] = useState<ActiveQrModal>(null);
+  const [personalSettleStep, setPersonalSettleStep] = useState<PersonalSettleStep>('idle');
   const [showSettlementCard, setShowSettlementCard] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
   const modalQrCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -243,6 +246,10 @@ export function ExpensesTab({
     if (personalDueAmount <= 0 || !party.fpsInfo?.trim()) return '';
     return buildFpsHkqrPayload(party.fpsInfo.trim(), personalDueAmount);
   }, [party.fpsInfo, personalDueAmount]);
+
+  useEffect(() => {
+    setPersonalSettleStep('idle');
+  }, [party.id, personalDueAmount]);
 
   function toggleParticipant(id: string) {
     setSelectedIds((prev) =>
@@ -749,59 +756,218 @@ export function ExpensesTab({
                 </button>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                {/* 轉數快動態金額二維碼（免手動輸入金額） */}
-                {personalFpsQrValue ? (
-                  <div className="flex flex-col items-center rounded-2xl bg-indigo-50/60 p-3.5 text-center ring-1 ring-indigo-200/80">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-bold text-indigo-800">
-                      <QrCode className="h-3 w-3" /> 轉數快 FPS · 已鎖定金額
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setActiveQrModal('fps-personal')}
-                      title="點擊放大並儲存專屬轉數快付款碼"
-                      className="group mt-2.5 overflow-hidden rounded-2xl bg-white p-2 shadow-sm ring-1 ring-indigo-200 transition hover:scale-[1.02]"
-                    >
-                      <div className="flex h-32 w-32 items-center justify-center rounded bg-white p-1">
-                        <QRCodeSVG
-                          value={personalFpsQrValue}
-                          size={124}
-                          level="M"
-                          includeMargin
-                          className="h-full w-full"
-                        />
-                      </div>
-                      <span className="mt-1 block text-[10px] font-semibold text-indigo-600">
-                        點擊放大／存圖掃碼自動填 {formatMoney(personalDueAmount, party.currency)}
+              {hasPayme || hasFps ? (
+                personalSettleStep === 'idle' ? (
+                  <button
+                    type="button"
+                    onClick={() => setPersonalSettleStep('choose')}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-brand-700"
+                  >
+                    <Wallet className="h-4 w-4" />
+                    轉帳結算
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                ) : personalSettleStep === 'choose' ? (
+                  <div className="space-y-3 rounded-2xl bg-slate-50/90 p-3.5 ring-1 ring-slate-200/80">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-slate-700">
+                        步驟 1/2 · 選擇轉帳方式
                       </span>
-                    </button>
-                  </div>
-                ) : null}
-
-                {/* PayMe 一鍵複製金額並跳轉 */}
-                {party.paymeLink ? (
-                  <div className="flex flex-col justify-between rounded-2xl bg-rose-50/60 p-3.5 ring-1 ring-rose-200/80">
-                    <div>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-bold text-rose-700">
-                        <ExternalLink className="h-3 w-3" /> PayMe 快速付款
-                      </span>
-                      <p className="mt-2 text-xs leading-relaxed text-slate-600">
-                        點擊下方按鈕會自動複製應付金額{' '}
-                        <strong className="text-slate-900">{personalDuePlainText}</strong>{' '}
-                        並開啟主辦人 PayMe，進入後直接貼上銀碼即可完成付款。
-                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setPersonalSettleStep('idle')}
+                        className="rounded-lg px-2 py-1 text-[11px] font-medium text-slate-500 hover:bg-slate-200/70"
+                      >
+                        收起
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleOpenPaymeWithAmount}
-                      className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-brand-700"
+                    <div
+                      className={`grid gap-2.5 ${hasPayme && hasFps ? 'grid-cols-2' : 'grid-cols-1'}`}
                     >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      開啟 PayMe（自動複製 {personalDuePlainText}）
-                    </button>
+                      {hasPayme ? (
+                        <button
+                          type="button"
+                          onClick={() => setPersonalSettleStep('payme')}
+                          className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-rose-50 px-3 py-4 text-center ring-1 ring-rose-200 transition hover:bg-rose-100/80"
+                        >
+                          <span className="inline-flex items-center gap-1 text-sm font-bold text-rose-700">
+                            <ExternalLink className="h-4 w-4" /> PayMe
+                          </span>
+                          <span className="text-[11px] text-rose-600/80">
+                            {party.paymeLink ? '自動複製金額並開啟 App' : '掃描 PayMe 二維碼'}
+                          </span>
+                        </button>
+                      ) : null}
+                      {hasFps ? (
+                        <button
+                          type="button"
+                          onClick={() => setPersonalSettleStep('fps')}
+                          className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-indigo-50 px-3 py-4 text-center ring-1 ring-indigo-200 transition hover:bg-indigo-100/80"
+                        >
+                          <span className="inline-flex items-center gap-1 text-sm font-bold text-indigo-700">
+                            <QrCode className="h-4 w-4" /> 轉數快 FPS
+                          </span>
+                          <span className="text-[11px] text-indigo-600/80">
+                            {personalFpsQrValue ? '已鎖定金額二維碼／號碼' : '掃描轉數快二維碼'}
+                          </span>
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
-                ) : null}
-              </div>
+                ) : personalSettleStep === 'payme' ? (
+                  <div className="space-y-3 rounded-2xl bg-rose-50/60 p-4 ring-1 ring-rose-200/80">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-bold text-rose-700">
+                        <ExternalLink className="h-3 w-3" /> 步驟 2/2 · PayMe 付款
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setPersonalSettleStep('choose')}
+                          className="inline-flex items-center gap-0.5 rounded-lg px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-white/80"
+                        >
+                          <ArrowLeft className="h-3 w-3" /> 重選方式
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPersonalSettleStep('idle')}
+                          className="rounded-lg px-2 py-1 text-[11px] font-medium text-slate-500 hover:bg-white/80"
+                        >
+                          收起
+                        </button>
+                      </div>
+                    </div>
+
+                    {party.paymeLink ? (
+                      <div className="space-y-2.5">
+                        <p className="text-xs leading-relaxed text-slate-600">
+                          點擊下方按鈕會自動複製應付金額{' '}
+                          <strong className="text-slate-900">{personalDuePlainText}</strong>{' '}
+                          並開啟主辦人 PayMe，進入後直接貼上銀碼即可完成付款。
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleOpenPaymeWithAmount}
+                          className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-brand-700"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          開啟 PayMe（自動複製 {personalDuePlainText}）
+                        </button>
+                      </div>
+                    ) : null}
+
+                    {party.paymeQrImage || paymeQrValue ? (
+                      <button
+                        type="button"
+                        onClick={() => setActiveQrModal('payme')}
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-rose-700 ring-1 ring-rose-200 transition hover:bg-rose-50"
+                      >
+                        <QrCode className="h-3.5 w-3.5" /> 查看 PayMe 收款二維碼
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="space-y-3 rounded-2xl bg-indigo-50/60 p-4 ring-1 ring-indigo-200/80">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-bold text-indigo-800">
+                        <QrCode className="h-3 w-3" /> 步驟 2/2 · 轉數快 FPS 付款
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setPersonalSettleStep('choose')}
+                          className="inline-flex items-center gap-0.5 rounded-lg px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-white/80"
+                        >
+                          <ArrowLeft className="h-3 w-3" /> 重選方式
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPersonalSettleStep('idle')}
+                          className="rounded-lg px-2 py-1 text-[11px] font-medium text-slate-500 hover:bg-white/80"
+                        >
+                          收起
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-center text-center">
+                      {personalFpsQrValue ? (
+                        <button
+                          type="button"
+                          onClick={() => setActiveQrModal('fps-personal')}
+                          title="點擊放大並儲存專屬轉數快付款碼"
+                          className="group overflow-hidden rounded-2xl bg-white p-2.5 shadow-sm ring-1 ring-indigo-200 transition hover:scale-[1.02]"
+                        >
+                          <div className="flex h-36 w-36 items-center justify-center rounded bg-white p-1">
+                            <QRCodeSVG
+                              value={personalFpsQrValue}
+                              size={136}
+                              level="M"
+                              includeMargin
+                              className="h-full w-full"
+                            />
+                          </div>
+                          <span className="mt-1 block text-[10px] font-semibold text-indigo-600">
+                            已鎖定 {formatMoney(personalDueAmount, party.currency)} · 點擊放大／存圖
+                          </span>
+                        </button>
+                      ) : party.fpsQrImage ? (
+                        <button
+                          type="button"
+                          onClick={() => setActiveQrModal('fps')}
+                          title="點擊放大轉數快二維碼"
+                          className="group overflow-hidden rounded-2xl bg-white p-2.5 shadow-sm ring-1 ring-indigo-200 transition hover:scale-[1.02]"
+                        >
+                          <img
+                            src={party.fpsQrImage}
+                            alt="轉數快 FPS 收款二維碼"
+                            className="h-36 w-36 object-contain"
+                          />
+                          <span className="mt-1 block text-[10px] font-semibold text-indigo-600">
+                            點擊放大／儲存二維碼
+                          </span>
+                        </button>
+                      ) : null}
+                    </div>
+
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      {personalFpsQrValue || party.fpsQrImage ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setActiveQrModal(personalFpsQrValue ? 'fps-personal' : 'fps')
+                          }
+                          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                        >
+                          <Download className="h-3.5 w-3.5" /> 放大／儲存付款碼
+                        </button>
+                      ) : null}
+                      {party.fpsInfo ? (
+                        <button
+                          type="button"
+                          onClick={handleCopyFps}
+                          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-700"
+                        >
+                          {copiedFps ? (
+                            <>
+                              <Check className="h-3.5 w-3.5" /> 已複製號碼
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3.5 w-3.5" />
+                              <span className="truncate">複製：{party.fpsInfo}</span>
+                            </>
+                          )}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                )
+              ) : (
+                <p className="rounded-2xl bg-slate-50 px-3.5 py-2.5 text-xs text-slate-500">
+                  主辦人尚未設定 PayMe 或轉數快收款資料，請直接與主辦人確認轉帳方式。
+                </p>
+              )}
             </div>
           ) : null}
 

@@ -33,6 +33,8 @@ import {
   buildGoogleCalendarUrl,
   buildShortPartyUrl,
   downloadICS,
+  formatPartyDateTime,
+  formatPartyLocation,
   isPartyEnded,
 } from '../lib/calendar';
 import { PlaceAutocomplete } from './PlaceAutocomplete';
@@ -317,60 +319,89 @@ export function RsvpTab({
 
   return (
     <div className="space-y-5">
-      {/* 參加者報名出席／獲批後的一鍵加入日曆提示卡 */}
+      {/* 參加者報名出席／獲批後的加入日曆彈出視窗 */}
       {showQuickCalendarCard ? (
-        <section className="rounded-3xl bg-emerald-50/90 p-4 shadow-sm ring-2 ring-emerald-300/80">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-start gap-2.5">
-              <CalendarPlus className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
-              <div>
-                <h2 className="text-sm font-bold text-emerald-950">
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={dismissCalendarPrompt}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-xl ring-1 ring-slate-200"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                  <CalendarPlus className="h-5 w-5" />
+                </div>
+                <h2 className="text-sm font-bold text-slate-900">
                   {myApprovalStatus === 'approved'
-                    ? '已確認出席！順手把活動加入日曆'
-                    : '已提交出席報名！先將活動加入日曆'}
+                    ? '已確認出席！要加入日曆嗎？'
+                    : '已提交出席報名！要加入日曆嗎？'}
                 </h2>
-                <p className="mt-0.5 text-xs text-emerald-800/90">
-                  .ics 檔案已內建活動前 1 天及前 2 小時雙重系統提醒，不怕忘記開局時間。
-                </p>
               </div>
+              <button
+                type="button"
+                aria-label="關閉日曆提示"
+                onClick={dismissCalendarPrompt}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <button
-              type="button"
-              aria-label="關閉日曆提示"
-              onClick={dismissCalendarPrompt}
-              className="rounded-lg p-1 text-emerald-700/70 hover:bg-emerald-100 hover:text-emerald-900"
-            >
-              <X className="h-4 w-4" />
-            </button>
+
+            <div className="mt-3 rounded-2xl bg-slate-50 px-3.5 py-2.5 text-xs text-slate-700 ring-1 ring-slate-200/70">
+              <p className="font-bold text-slate-900">{party.title}</p>
+              <p className="mt-1 text-slate-600">
+                {formatPartyDateTime(party.startTime, party.endTime)}
+              </p>
+              {formatPartyLocation(party) ? (
+                <p className="mt-0.5 text-slate-500">{formatPartyLocation(party)}</p>
+              ) : null}
+            </div>
+
+            <p className="mt-2.5 text-[11px] leading-relaxed text-slate-500">
+              .ics 日曆檔案已內建活動前 1 天及前 2 小時雙重提醒，你可自由選擇是否立即加入。
+            </p>
+
+            <div className="mt-4 space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  downloadICS(party, shareUrl);
+                  dismissCalendarPrompt();
+                  toast.success('已下載日曆檔案（含前 1 天＋前 2 小時提醒）');
+                }}
+                className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
+              >
+                <Download className="h-4 w-4" />
+                加入 Apple / 系統日曆 (.ics)
+              </button>
+              <a
+                href={buildGoogleCalendarUrl(party, shareUrl)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  dismissCalendarPrompt();
+                  toast.success('已開啟 Google 日曆，按「儲存」即完成');
+                }}
+                className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-brand-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-brand-700"
+              >
+                <ExternalLink className="h-4 w-4" />
+                加入 Google 日曆
+              </a>
+              <button
+                type="button"
+                onClick={dismissCalendarPrompt}
+                className="w-full rounded-2xl bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-200"
+              >
+                暫時不用
+              </button>
+            </div>
           </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => {
-                downloadICS(party, shareUrl);
-                dismissCalendarPrompt();
-                toast.success('已下載日曆檔案（含前 1 天＋前 2 小時提醒）');
-              }}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700"
-            >
-              <Download className="h-3.5 w-3.5" />
-              加入 Apple / 系統日曆 (.ics)
-            </button>
-            <a
-              href={buildGoogleCalendarUrl(party, shareUrl)}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => {
-                dismissCalendarPrompt();
-                toast.success('已開啟 Google 日曆，按「儲存」即完成');
-              }}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-300 transition hover:bg-emerald-100/60"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              加入 Google 日曆
-            </a>
-          </div>
-        </section>
+        </div>
       ) : null}
       {/* 主辦人專用：待審核報名列表 */}
       {isAdmin && pendingRsvps.length > 0 ? (
