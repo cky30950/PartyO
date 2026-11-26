@@ -24,6 +24,16 @@ interface PushReminderBarProps {
   onSignIn: () => Promise<void>;
 }
 
+const VAPID_CACHE_KEY = 'partyo_fcm_vapid_key_v1';
+
+function readCachedVapidKey(): string {
+  try {
+    return (localStorage.getItem(VAPID_CACHE_KEY) || '').trim();
+  } catch {
+    return '';
+  }
+}
+
 export function PushReminderBar({
   partyId,
   isAdmin,
@@ -32,7 +42,8 @@ export function PushReminderBar({
   onSignIn,
 }: PushReminderBarProps) {
   const envVapidKey = getEnvVapidKey();
-  const [cloudVapidKey, setCloudVapidKey] = useState('');
+  const [cloudVapidKey, setCloudVapidKey] = useState(() => readCachedVapidKey());
+  const [cloudKeyLoaded, setCloudKeyLoaded] = useState(Boolean(envVapidKey));
   const [subscribed, setSubscribed] = useState(false);
   const [subscriberCount, setSubscriberCount] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -46,6 +57,16 @@ export function PushReminderBar({
   useEffect(() => {
     const unsub = subscribeCloudVapidKey((key) => {
       setCloudVapidKey(key);
+      setCloudKeyLoaded(true);
+      try {
+        if (key) {
+          localStorage.setItem(VAPID_CACHE_KEY, key);
+        } else {
+          localStorage.removeItem(VAPID_CACHE_KEY);
+        }
+      } catch {
+        // Ignore storage errors
+      }
       if (key) setVapidDraft((prev) => (prev ? prev : key));
     });
     return unsub;
@@ -133,8 +154,8 @@ export function PushReminderBar({
     }
   }
 
-  // 非主辦人且尚未設定 VAPID Key 時，隱藏元件以免顯示無法使用的按鈕
-  if (!effectiveVapidKey && !isAdmin) {
+  // 仍在載入雲端金鑰時先不渲染，避免一開始閃現 Firebase 設定提示
+  if (!effectiveVapidKey && (!cloudKeyLoaded || !isAdmin)) {
     return null;
   }
 
