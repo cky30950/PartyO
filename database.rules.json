@@ -32,6 +32,15 @@
       ".read": "auth != null && auth.token.email_verified == true && (auth.token.email.toLowerCase() == 'cky30950@gmail.com' || root.child('adminConfig/admins/' + auth.token.email.toLowerCase().replace('.', ',')).val() == true)",
       ".write": "auth != null && auth.token.email_verified == true && (auth.token.email.toLowerCase() == 'cky30950@gmail.com' || root.child('adminConfig/admins/' + auth.token.email.toLowerCase().replace('.', ',')).val() == true)"
     },
+    "partyPhotos": {
+      "$partyId": {
+        ".read": "$partyId.length >= 8",
+        "$photoId": {
+          ".write": "auth != null && $partyId.length >= 8 && ((auth.token.email_verified == true && (auth.token.email.toLowerCase() == 'cky30950@gmail.com' || root.child('adminConfig/admins/' + auth.token.email.toLowerCase().replace('.', ',')).val() == true)) || (!newData.exists() && data.exists() && data.child('uploadedByUid').val() == auth.uid) || (newData.exists() && !data.exists() && newData.child('uploadedByUid').val() == auth.uid))",
+          ".validate": "!newData.exists() || (newData.hasChildren(['id', 'partyId', 'originalKey', 'originalUrl', 'fileName', 'size', 'uploadedByUid', 'uploadedByName', 'uploadedAt']) && newData.child('partyId').val() == $partyId && newData.child('id').val() == $photoId)"
+        }
+      }
+    },
     "parties": {
       ".read": true,
       ".write": "auth != null && auth.token.email_verified == true && (auth.token.email.toLowerCase() == 'cky30950@gmail.com' || root.child('adminConfig/admins/' + auth.token.email.toLowerCase().replace('.', ',')).val() == true)",

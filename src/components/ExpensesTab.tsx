@@ -20,6 +20,9 @@ import {
   QrCode,
   Download,
   Share2,
+  Sparkles,
+  Receipt,
+  Camera,
 } from 'lucide-react';
 import type {
   AppTheme,
@@ -37,6 +40,7 @@ import {
 } from '../lib/paymentQr';
 import { fireConfetti } from '../lib/celebrate';
 import { shareImageDataUrl } from '../lib/webShare';
+import { buildDownloadUrl, scanReceiptWithGemini } from '../lib/mediaApi';
 import {
   buildWhatsAppSettlementText,
   calculateBalances,
@@ -53,6 +57,7 @@ interface ExpensesTabProps {
   currentUser: User | null;
   shareUrl: string;
   appTheme: AppTheme;
+  mediaApiBase: string;
   hostPaymentProfile: HostPaymentProfile | null;
   onUpdateParty: (updated: Party) => Promise<void>;
   onSaveHostPaymentProfile: (profile: HostPaymentProfile) => Promise<void>;
@@ -80,6 +85,7 @@ export function ExpensesTab({
   party,
   isAdmin,
   currentUser,
+  mediaApiBase,
   hostPaymentProfile,
   onUpdateParty,
   onSaveHostPaymentProfile,
@@ -103,6 +109,15 @@ export function ExpensesTab({
   const [customShares, setCustomShares] = useState<Record<string, string>>({});
   const [exactAmounts, setExactAmounts] = useState<Record<string, string>>({});
   const [errorMsg, setErrorMsg] = useState('');
+  const [scanningReceipt, setScanningReceipt] = useState(false);
+  const [receiptUrl, setReceiptUrl] = useState('');
+  const [receiptKey, setReceiptKey] = useState('');
+  const [receiptSummary, setReceiptSummary] = useState('');
+  const [viewingReceipt, setViewingReceipt] = useState<{
+    title: string;
+    url: string;
+    summary?: string;
+  } | null>(null);
 
   // 事後設定／編輯單筆開支的分攤成員
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
@@ -356,6 +371,44 @@ export function ExpensesTab({
     handleDownloadModalQr(type);
   }
 
+  async function handleScanReceipt(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!currentUser || !isAdmin) {
+      toast.error('只有主辦人可使用 AI 掃單功能');
+      return;
+    }
+    if (!mediaApiBase) {
+      toast.error('請先到「原圖相簿」分頁設定伺服器網址');
+      return;
+    }
+
+    setScanningReceipt(true);
+    setErrorMsg('');
+    try {
+      const result = await scanReceiptWithGemini({
+        apiBase: mediaApiBase,
+        partyId: party.id,
+        file,
+        user: currentUser,
+      });
+      setReceiptUrl(result.receiptUrl);
+      setReceiptKey(result.receiptKey);
+      setReceiptSummary(result.ocr.summary || '');
+      if (result.ocr.title) setTitle(result.ocr.title);
+      if (result.ocr.amount > 0) setAmount(String(result.ocr.amount));
+      if (result.ocr.category) setCategory(result.ocr.category);
+      toast.success('已完成 AI 掃單並保存原版單據，請核對資料後儲存');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '掃單失敗';
+      setErrorMsg(`掃單失敗：${msg}`);
+      toast.error(`掃單失敗：${msg}`);
+    } finally {
+      setScanningReceipt(false);
+    }
+  }
+
   async function handleAddExpense(e: FormEvent) {
     e.preventDefault();
     setErrorMsg('');
@@ -437,6 +490,9 @@ export function ExpensesTab({
       participantIds: cleanSelectedIds,
       ...(parsedShares ? { customShares: parsedShares } : {}),
       ...(parsedExact ? { exactAmounts: parsedExact } : {}),
+      ...(receiptUrl ? { receiptUrl } : {}),
+      ...(receiptKey ? { receiptKey } : {}),
+      ...(receiptSummary ? { receiptSummary } : {}),
       category,
       createdAt: new Date().toISOString(),
     };
@@ -450,6 +506,9 @@ export function ExpensesTab({
       setAmount('');
       setCustomShares({});
       setExactAmounts({});
+      setReceiptUrl('');
+      setReceiptKey('');
+      setReceiptSummary('');
       toast.success(
         assignSplitNow
           ? `已新增開支「${newExpense.title}」`
@@ -562,6 +621,9 @@ export function ExpensesTab({
       };
       if (parsedShares) base.customShares = parsedShares;
       if (parsedExact) base.exactAmounts = parsedExact;
+      if (item.receiptUrl) base.receiptUrl = item.receiptUrl;
+      if (item.receiptKey) base.receiptKey = item.receiptKey;
+      if (item.receiptSummary) base.receiptSummary = item.receiptSummary;
       return base;
     });
 
@@ -1506,10 +1568,84 @@ export function ExpensesTab({
       {/* 新增開支表單（僅限主辦人） */}
       {isAdmin ? (
         <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
-          <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
-            <Plus className="h-4 w-4 text-brand-600" />
-            新增一筆開支
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
+              <Plus className="h-4 w-4 text-brand-600" />
+              新增一筆開支
+            </h2>
+            <label
+              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 ${
+                scanningReceipt ? 'pointer-events-none opacity-60' : ''
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <Camera className="h-3.5 w-3.5" />
+              {scanningReceipt ? 'AI 掃單並存單中...' : '影相掃單自動入資料'}
+              <input
+                type="file"
+                accept="image/*"
+                disabled={scanningReceipt}
+                onChange={handleScanReceipt}
+                className="hidden"
+              />
+            </label>
+          </div>
+
+          {!mediaApiBase ? (
+            <p className="mt-2 text-[11px] text-slate-400">
+              提示：到「原圖相簿」分頁設定伺服器網址後，即可使用 AI 影相掃單並自動保存單據。
+            </p>
+          ) : null}
+
+          {receiptUrl ? (
+            <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-indigo-50/80 px-3.5 py-2.5 ring-1 ring-indigo-200">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <img
+                  src={receiptUrl}
+                  alt="已掃描單據縮圖"
+                  className="h-11 w-11 shrink-0 rounded-xl object-cover ring-1 ring-indigo-200"
+                />
+                <div className="min-w-0">
+                  <p className="flex items-center gap-1 text-xs font-bold text-indigo-900">
+                    <Receipt className="h-3.5 w-3.5 shrink-0 text-indigo-600" />
+                    原版單據已自動保存
+                  </p>
+                  {receiptSummary ? (
+                    <p className="mt-0.5 truncate text-[11px] text-indigo-800/80">
+                      {receiptSummary}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setViewingReceipt({
+                      title: title.trim() || '待儲存單據',
+                      url: receiptUrl,
+                      summary: receiptSummary || undefined,
+                    })
+                  }
+                  className="rounded-lg bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100"
+                >
+                  預覽
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReceiptUrl('');
+                    setReceiptKey('');
+                    setReceiptSummary('');
+                  }}
+                  aria-label="移除單據"
+                  className="rounded-lg p-1 text-slate-400 hover:bg-white hover:text-rose-600"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           <form onSubmit={handleAddExpense} className="mt-3 space-y-3.5">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -1740,6 +1876,26 @@ export function ExpensesTab({
                           ? '尚未設定分攤成員'
                           : `${SPLIT_LABELS[exp.splitType]}（${exp.participantIds.length} 人分攤）`}
                       </p>
+                      {exp.receiptSummary ? (
+                        <p className="mt-0.5 text-[11px] text-slate-400">
+                          AI 摘要：{exp.receiptSummary}
+                        </p>
+                      ) : null}
+                      {exp.receiptUrl ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setViewingReceipt({
+                              title: exp.title,
+                              url: exp.receiptUrl!,
+                              summary: exp.receiptSummary,
+                            })
+                          }
+                          className="mt-1.5 inline-flex items-center gap-1 rounded-lg bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-200 transition hover:bg-indigo-100"
+                        >
+                          <Receipt className="h-3 w-3" /> 查看原版單據
+                        </button>
+                      ) : null}
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
                       <span className="text-sm font-bold text-slate-900">
@@ -2058,6 +2214,64 @@ export function ExpensesTab({
                 type="button"
                 onClick={() => setActiveQrModal(null)}
                 className="w-full rounded-2xl bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+              >
+                關閉
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* 單據原圖查閱彈窗（儲存於 Cloudflare R2） */}
+      {viewingReceipt ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setViewingReceipt(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+          >
+            <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+              <div className="min-w-0">
+                <p className="flex items-center gap-1.5 truncate text-xs font-bold text-slate-900">
+                  <Receipt className="h-3.5 w-3.5 shrink-0 text-indigo-600" />
+                  單據查閱：{viewingReceipt.title}
+                </p>
+                {viewingReceipt.summary ? (
+                  <p className="mt-0.5 text-[11px] text-slate-500">{viewingReceipt.summary}</p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                aria-label="關閉單據預覽"
+                onClick={() => setViewingReceipt(null)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex flex-1 items-center justify-center overflow-auto bg-slate-900/95 p-2">
+              <img
+                src={viewingReceipt.url}
+                alt={`${viewingReceipt.title} 單據`}
+                className="max-h-[65vh] w-auto object-contain"
+              />
+            </div>
+            <div className="flex items-center gap-2 border-t border-slate-100 p-3.5">
+              <a
+                href={buildDownloadUrl(viewingReceipt.url, `${viewingReceipt.title}_receipt.jpg`)}
+                download={`${viewingReceipt.title}_receipt.jpg`}
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-slate-800"
+              >
+                <Download className="h-4 w-4" /> 下載原版單據
+              </a>
+              <button
+                type="button"
+                onClick={() => setViewingReceipt(null)}
+                className="rounded-2xl bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
               >
                 關閉
               </button>

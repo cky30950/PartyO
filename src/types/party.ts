@@ -32,6 +32,9 @@ export interface Expense {
   customShares?: Record<string, number>; // e.g., { guestId: 1.5 }
   exactAmounts?: Record<string, number>; // e.g., { guestId: 120 }
   category: ExpenseCategory;
+  receiptUrl?: string; // Cloudflare R2 儲存的原版單據圖片網址
+  receiptKey?: string; // Cloudflare R2 物件路徑
+  receiptSummary?: string; // Gemini AI 辨識摘要
   createdAt: string;
 }
 
@@ -95,4 +98,21 @@ export interface Transfer {
   toGuestId: string;
   toName: string;
   amount: number;
+}
+
+export interface PartyPhoto {
+  id: string;
+  partyId: string;
+  originalKey: string;
+  originalUrl: string;
+  thumbKey?: string;
+  thumbUrl?: string;
+  fileName: string;
+  contentType: string;
+  size: number;
+  width?: number;
+  height?: number;
+  uploadedByUid: string;
+  uploadedByName: string;
+  uploadedAt: string;
 }
