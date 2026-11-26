@@ -19,7 +19,7 @@ import {
   X,
   QrCode,
   Download,
-  Image as ImageIcon,
+  Share2,
 } from 'lucide-react';
 import type {
   AppTheme,
@@ -36,7 +36,7 @@ import {
   compressQrImageFile,
 } from '../lib/paymentQr';
 import { fireConfetti } from '../lib/celebrate';
-import { ShareCardModal } from './ShareCardModal';
+import { shareImageDataUrl } from '../lib/webShare';
 import {
   buildWhatsAppSettlementText,
   calculateBalances,
@@ -80,8 +80,6 @@ export function ExpensesTab({
   party,
   isAdmin,
   currentUser,
-  shareUrl,
-  appTheme,
   hostPaymentProfile,
   onUpdateParty,
   onSaveHostPaymentProfile,
@@ -153,7 +151,6 @@ export function ExpensesTab({
   const [copiedFps, setCopiedFps] = useState(false);
   const [activeQrModal, setActiveQrModal] = useState<ActiveQrModal>(null);
   const [personalSettleStep, setPersonalSettleStep] = useState<PersonalSettleStep>('idle');
-  const [showSettlementCard, setShowSettlementCard] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
   const modalQrCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -303,7 +300,10 @@ export function ExpensesTab({
     window.open(party.paymeLink, '_blank', 'noopener,noreferrer');
   }
 
-  function handleDownloadModalQr(type: 'payme' | 'fps' | 'fps-personal') {
+  function getModalQrImagePayload(type: 'payme' | 'fps' | 'fps-personal'): {
+    dataUrl: string;
+    fileName: string;
+  } | null {
     const customImg =
       type === 'payme'
         ? party.paymeQrImage
@@ -314,17 +314,46 @@ export function ExpensesTab({
     if (!dataUrl && modalQrCanvasRef.current) {
       dataUrl = modalQrCanvasRef.current.toDataURL('image/png');
     }
-    if (!dataUrl) return;
-    const link = document.createElement('a');
-    link.href = dataUrl;
-    link.download =
+    if (!dataUrl) return null;
+    const fileName =
       type === 'fps-personal'
         ? `fps_${personalDuePlainText || 'pay'}_qr.png`
         : `${type === 'payme' ? 'payme' : 'fps'}_qr.png`;
+    return { dataUrl, fileName };
+  }
+
+  function handleDownloadModalQr(type: 'payme' | 'fps' | 'fps-personal') {
+    const payload = getModalQrImagePayload(type);
+    if (!payload) return;
+    const link = document.createElement('a');
+    link.href = payload.dataUrl;
+    link.download = payload.fileName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     toast.success('已儲存二維碼圖片');
+  }
+
+  async function handleShareModalQr(type: 'payme' | 'fps' | 'fps-personal') {
+    const payload = getModalQrImagePayload(type);
+    if (!payload) return;
+    const title =
+      type === 'fps-personal'
+        ? `${party.title} 轉數快付款碼（${formatMoney(personalDueAmount, party.currency)}）`
+        : type === 'payme'
+          ? `${party.title} PayMe 收款碼`
+          : `${party.title} 轉數快收款碼`;
+    const outcome = await shareImageDataUrl({
+      dataUrl: payload.dataUrl,
+      fileName: payload.fileName,
+      title,
+    });
+    if (outcome === 'shared') {
+      toast.success('已開啟系統分享');
+      return;
+    }
+    if (outcome === 'cancelled') return;
+    handleDownloadModalQr(type);
   }
 
   async function handleAddExpense(e: FormEvent) {
@@ -1315,15 +1344,6 @@ export function ExpensesTab({
             最少轉帳結算與收款追蹤
           </h2>
           <div className="flex flex-wrap items-center gap-1.5">
-            {party.expenses.length > 0 ? (
-              <button
-                type="button"
-                onClick={() => setShowSettlementCard(true)}
-                className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-brand-600 transition hover:bg-rose-100"
-              >
-                <ImageIcon className="h-3.5 w-3.5" /> 匯出結算圖
-              </button>
-            ) : null}
             {isAdmin ? (
               <button
                 type="button"
@@ -2018,11 +2038,20 @@ export function ExpensesTab({
 
               <button
                 type="button"
-                onClick={() => handleDownloadModalQr(activeQrModal)}
+                onClick={() => handleShareModalQr(activeQrModal)}
                 className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-slate-800"
               >
+                <Share2 className="h-4 w-4" />{' '}
+                {activeQrModal === 'fps-personal' ? '原生分享／儲存專屬付款碼' : '原生分享／儲存二維碼'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleDownloadModalQr(activeQrModal)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+              >
                 <Download className="h-4 w-4" />{' '}
-                {activeQrModal === 'fps-personal' ? '儲存專屬付款碼圖片' : '儲存二維碼圖片'}
+                直接下載 PNG
               </button>
 
               <button
@@ -2037,16 +2066,6 @@ export function ExpensesTab({
         </div>
       ) : null}
 
-      {showSettlementCard ? (
-        <ShareCardModal
-          mode="settlement"
-          party={party}
-          shareUrl={shareUrl}
-          appTheme={appTheme}
-          transfers={transfers}
-          onClose={() => setShowSettlementCard(false)}
-        />
-      ) : null}
     </div>
   );
 }

@@ -41,6 +41,8 @@ import { CalendarTab } from './CalendarTab';
 import { ExpensesTab } from './ExpensesTab';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { PushReminderBar } from './PushReminderBar';
+import { WeatherBanner } from './WeatherBanner';
+import { shareTextOrUrl } from '../lib/webShare';
 
 type TabKey = 'rsvp' | 'calendar' | 'expenses';
 
@@ -108,18 +110,12 @@ export function PartyDashboard({
   const shareUrl = buildShortPartyUrl(party.id);
 
   async function handleShare() {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: party.title,
-          text: `${party.title} — 報名、加日曆與費用分攤`,
-          url: shareUrl,
-        });
-        return;
-      } catch {
-        // Fallback to copy
-      }
-    }
+    const outcome = await shareTextOrUrl({
+      title: party.title,
+      text: `${party.title} — 報名、加日曆與費用分攤`,
+      url: shareUrl,
+    });
+    if (outcome === 'shared' || outcome === 'cancelled') return;
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopiedLink(true);
@@ -359,6 +355,8 @@ export function PartyDashboard({
             onSignIn={onSignIn}
           />
         ) : null}
+
+        <WeatherBanner startTime={party.startTime} ended={ended} />
 
         {/* 置頂即時公告（跨所有分頁顯示） */}
         {hasAnnouncement || isAdmin ? (

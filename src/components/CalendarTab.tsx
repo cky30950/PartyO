@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Calendar, Download, ExternalLink, Copy, Check, MessageCircle, MapPin, Image as ImageIcon } from 'lucide-react';
+import { Calendar, Download, ExternalLink, Copy, Check, MessageCircle, MapPin, Image as ImageIcon, Share2 } from 'lucide-react';
 import type { AppTheme, Party } from '../types/party';
 import {
   buildGoogleCalendarUrl,
@@ -10,6 +10,7 @@ import {
   formatPartyDateTime,
   hasEndTime,
 } from '../lib/calendar';
+import { shareTextOrUrl } from '../lib/webShare';
 import { ShareCardModal } from './ShareCardModal';
 
 interface CalendarTabProps {
@@ -35,6 +36,16 @@ export function CalendarTab({ party, shareUrl, appTheme }: CalendarTabProps) {
     } catch {
       toast.error('複製失敗，請手動選取複製');
     }
+  }
+
+  async function handleNativeShareInvite() {
+    const outcome = await shareTextOrUrl({
+      title: party.title,
+      text: whatsappText,
+      url: shareUrl,
+    });
+    if (outcome === 'shared' || outcome === 'cancelled') return;
+    await copyText(whatsappText, 'whatsapp');
   }
 
   return (
@@ -125,7 +136,16 @@ export function CalendarTab({ party, shareUrl, appTheme }: CalendarTabProps) {
           {whatsappText}
         </pre>
 
-        <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
+        <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={handleNativeShareInvite}
+            className="flex items-center justify-center gap-1.5 rounded-2xl bg-brand-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-brand-700"
+          >
+            <Share2 className="h-4 w-4" />
+            系統原生分享（WhatsApp / IG / AirDrop）
+          </button>
+
           <a
             href={whatsappUrl}
             target="_blank"
