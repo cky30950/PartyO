@@ -33,7 +33,7 @@
       ".write": "auth != null && auth.token.email_verified == true && (auth.token.email.toLowerCase() == 'cky30950@gmail.com' || root.child('adminConfig/admins/' + auth.token.email.toLowerCase().replace('.', ',')).val() == true)"
     },
     "parties": {
-      ".read": "auth != null && auth.token.email_verified == true && (auth.token.email.toLowerCase() == 'cky30950@gmail.com' || root.child('adminConfig/admins/' + auth.token.email.toLowerCase().replace('.', ',')).val() == true)",
+      ".read": true,
       ".write": "auth != null && auth.token.email_verified == true && (auth.token.email.toLowerCase() == 'cky30950@gmail.com' || root.child('adminConfig/admins/' + auth.token.email.toLowerCase().replace('.', ',')).val() == true)",
       "$partyId": {
         ".read": "$partyId.length >= 8",

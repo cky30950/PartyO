@@ -108,6 +108,7 @@ export function HomeView({
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [showAdminManager, setShowAdminManager] = useState(false);
+  const [showEndedParties, setShowEndedParties] = useState(false);
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [adminEmailBusy, setAdminEmailBusy] = useState(false);
   const [adminEmailError, setAdminEmailError] = useState('');
@@ -633,41 +634,52 @@ export function HomeView({
           </section>
         )}
 
-        {endedParties.length > 0 && (
+        {isAdmin && endedParties.length > 0 && (
           <section className="space-y-3">
-            <h3 className="flex items-center gap-1.5 px-1 text-sm font-bold text-slate-500">
-              <Archive className="h-4 w-4 text-slate-400" />
-              已結束的活動（{endedParties.length}）
-            </h3>
-            <div className="space-y-2.5">
-              {endedParties.map((p) => {
-                const goingCount = getAllGuests(p).filter((g) => g.status === 'going').length;
-                return (
-                  <div
-                    key={p.id}
-                    className="flex items-center justify-between gap-2 rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-slate-200/70 transition hover:bg-white hover:ring-slate-300"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => onOpenParty(p.id)}
-                      className="min-w-0 flex-1 text-left"
+            <button
+              type="button"
+              onClick={() => setShowEndedParties((v) => !v)}
+              className="flex w-full items-center justify-between rounded-2xl bg-white/80 px-4 py-2.5 text-xs font-bold text-slate-500 shadow-sm ring-1 ring-slate-200/70 transition hover:bg-white"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <Archive className="h-4 w-4 text-slate-400" />
+                已結束的活動（{endedParties.length}）
+              </span>
+              {showEndedParties ? (
+                <ChevronUp className="h-4 w-4 text-slate-400" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-slate-400" />
+              )}
+            </button>
+            {showEndedParties ? (
+              <div className="space-y-2.5">
+                {endedParties.map((p) => {
+                  const goingCount = getAllGuests(p).filter((g) => g.status === 'going').length;
+                  return (
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-between gap-2 rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-slate-200/70 transition hover:bg-white hover:ring-slate-300"
                     >
-                      <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-bold text-slate-700">{p.title}</p>
-                        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
-                          已結束
-                        </span>
-                      </div>
-                      <p className="mt-0.5 truncate text-xs text-slate-400">
-                        {formatPartyDateTime(p.startTime, p.endTime)}
-                        {p.location ? ` · ${p.location}` : ''}
-                      </p>
-                      <p className="mt-1 text-[11px] font-medium text-slate-500">
-                        {p.maxGuests ? `${goingCount}/${p.maxGuests} 人出席` : `${goingCount} 人出席`} ·{' '}
-                        {p.expenses.length} 筆開支
-                      </p>
-                    </button>
-                    {isAdmin ? (
+                      <button
+                        type="button"
+                        onClick={() => onOpenParty(p.id)}
+                        className="min-w-0 flex-1 text-left"
+                      >
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-bold text-slate-700">{p.title}</p>
+                          <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                            已結束
+                          </span>
+                        </div>
+                        <p className="mt-0.5 truncate text-xs text-slate-400">
+                          {formatPartyDateTime(p.startTime, p.endTime)}
+                          {p.location ? ` · ${p.location}` : ''}
+                        </p>
+                        <p className="mt-1 text-[11px] font-medium text-slate-500">
+                          {p.maxGuests ? `${goingCount}/${p.maxGuests} 人出席` : `${goingCount} 人出席`} ·{' '}
+                          {p.expenses.length} 筆開支
+                        </p>
+                      </button>
                       <div className="flex shrink-0 items-center gap-1">
                         <button
                           type="button"
@@ -687,19 +699,19 @@ export function HomeView({
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
           </section>
         )}
 
-        {!isAdmin && activeParties.length === 0 && endedParties.length === 0 ? (
+        {!isAdmin && activeParties.length === 0 ? (
           <section className="rounded-3xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200/80">
-            <p className="text-sm font-semibold text-slate-700">暫未有瀏覽過的派對活動</p>
+            <p className="text-sm font-semibold text-slate-700">暫時未有進行中或即將舉行的派對活動</p>
             <p className="mt-1 text-xs text-slate-500">
-              打開主辦人分享的專屬活動連結後，活動就會顯示在這裡方便你隨時返回查看。
+              主辦人建立新活動後，這裡會即時自動顯示。
             </p>
           </section>
         ) : null}

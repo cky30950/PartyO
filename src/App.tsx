@@ -163,7 +163,7 @@ export function App() {
   }, [isAdmin]);
 
   useEffect(() => {
-    if (partyId || !isAdmin) return;
+    if (partyId) return;
     const unsub = subscribeAllParties(
       (list) => setRecentParties(list),
       () => {
@@ -171,7 +171,7 @@ export function App() {
       }
     );
     return () => unsub();
-  }, [partyId, isAdmin, refreshList]);
+  }, [partyId, refreshList]);
 
   useEffect(() => {
     if (!partyId) {
