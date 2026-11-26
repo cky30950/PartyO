@@ -303,16 +303,6 @@ export function ExpensesTab({
     window.open(party.paymeLink, '_blank', 'noopener,noreferrer');
   }
 
-  async function handleCopyPersonalAmount() {
-    if (!personalDuePlainText) return;
-    try {
-      await navigator.clipboard.writeText(personalDuePlainText);
-      toast.success(`已複製應付金額 ${personalDuePlainText}`);
-    } catch {
-      toast.error('複製金額失敗');
-    }
-  }
-
   function handleDownloadModalQr(type: 'payme' | 'fps' | 'fps-personal') {
     const customImg =
       type === 'payme'
@@ -747,13 +737,6 @@ export function ExpensesTab({
                     </p>
                   ) : null}
                 </div>
-                <button
-                  type="button"
-                  onClick={handleCopyPersonalAmount}
-                  className="inline-flex items-center gap-1 rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50"
-                >
-                  <Copy className="h-3.5 w-3.5" /> 複製金額
-                </button>
               </div>
 
               {hasPayme || hasFps ? (

@@ -944,8 +944,16 @@ export function RsvpTab({
             return (
               <div key={guest.id} className="flex items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <p className="truncate text-sm font-semibold text-slate-900">{guest.name}</p>
+                    {guest.identityOrIg?.trim() ? (
+                      <span
+                        title={guest.identityOrIg.trim()}
+                        className="max-w-[180px] truncate rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600"
+                      >
+                        {guest.identityOrIg.trim()}
+                      </span>
+                    ) : null}
                     {isOwnEntry ? (
                       <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-brand-600">
                         你
