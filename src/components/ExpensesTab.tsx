@@ -1580,7 +1580,7 @@ export function ExpensesTab({
             >
               <Sparkles className="h-3.5 w-3.5" />
               <Camera className="h-3.5 w-3.5" />
-              {scanningReceipt ? 'AI 掃單並存單中...' : '影相掃單自動入資料'}
+              {scanningReceipt ? 'AI 掃單並存單中...' : '影相AI入單'}
               <input
                 type="file"
                 accept="image/*"
