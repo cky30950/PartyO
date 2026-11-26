@@ -197,23 +197,24 @@ export function PartyDashboard({
                 <Cloud className="h-3 w-3" /> 線上即時同步中
               </span>
 
+              <button
+                type="button"
+                onClick={handleShare}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-700"
+              >
+                {copiedLink ? (
+                  <>
+                    <Check className="h-3.5 w-3.5" /> 已複製連結
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="h-3.5 w-3.5" /> 分享派對
+                  </>
+                )}
+              </button>
+
               {isAdmin ? (
                 <>
-                  <button
-                    type="button"
-                    onClick={handleShare}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-700"
-                  >
-                    {copiedLink ? (
-                      <>
-                        <Check className="h-3.5 w-3.5" /> 已複製連結
-                      </>
-                    ) : (
-                      <>
-                        <Share2 className="h-3.5 w-3.5" /> 分享派對
-                      </>
-                    )}
-                  </button>
 
                   <button
                     type="button"
