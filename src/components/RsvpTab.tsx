@@ -16,6 +16,9 @@ import {
   X,
   ListOrdered,
   ArrowUpCircle,
+  CalendarPlus,
+  Download,
+  ExternalLink,
 } from 'lucide-react';
 import type { ApprovalStatus, Guest, Party, RsvpStatus } from '../types/party';
 import {
@@ -26,6 +29,12 @@ import {
   getWaitlistRsvps,
   isHostGuest,
 } from '../lib/partyStore';
+import {
+  buildGoogleCalendarUrl,
+  buildShortPartyUrl,
+  downloadICS,
+  isPartyEnded,
+} from '../lib/calendar';
 import { PlaceAutocomplete } from './PlaceAutocomplete';
 import { fireConfetti } from '../lib/celebrate';
 
@@ -121,6 +130,14 @@ export function RsvpTab({
   const [selfNote, setSelfNote] = useState('');
   const [selfSaved, setSelfSaved] = useState(false);
   const [selfError, setSelfError] = useState('');
+  const [justSubmittedGoing, setJustSubmittedGoing] = useState(false);
+  const [calPromptDismissed, setCalPromptDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(`partyo_cal_prompt_${party.id}`) === '1';
+    } catch {
+      return false;
+    }
+  });
 
   // 主辦人編輯活動資料狀態
   const [editingInfo, setEditingInfo] = useState(false);
@@ -222,6 +239,12 @@ export function RsvpTab({
       });
       setSelfSaved(true);
       toast.success(nextApproval === 'approved' ? '已更新你的報名狀態' : '已提交報名申請，等待主辦人審核');
+      if (selfStatus === 'going') {
+        setJustSubmittedGoing(true);
+        setCalPromptDismissed(false);
+      } else {
+        setJustSubmittedGoing(false);
+      }
       if (!myRsvp || selfStatus === 'going') {
         fireConfetti('rsvp');
       }
@@ -272,8 +295,83 @@ export function RsvpTab({
     ? (myRsvp.approvalStatus ?? 'approved')
     : null;
 
+  const shareUrl = buildShortPartyUrl(party.id);
+  const partyEnded = isPartyEnded(party);
+  const showQuickCalendarCard =
+    !isAdmin &&
+    !partyEnded &&
+    !calPromptDismissed &&
+    (justSubmittedGoing ||
+      (myRsvp?.status === 'going' &&
+        (myApprovalStatus === 'approved' || myApprovalStatus === 'pending')));
+
+  function dismissCalendarPrompt() {
+    setCalPromptDismissed(true);
+    setJustSubmittedGoing(false);
+    try {
+      localStorage.setItem(`partyo_cal_prompt_${party.id}`, '1');
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
   return (
     <div className="space-y-5">
+      {/* 參加者報名出席／獲批後的一鍵加入日曆提示卡 */}
+      {showQuickCalendarCard ? (
+        <section className="rounded-3xl bg-emerald-50/90 p-4 shadow-sm ring-2 ring-emerald-300/80">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2.5">
+              <CalendarPlus className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+              <div>
+                <h2 className="text-sm font-bold text-emerald-950">
+                  {myApprovalStatus === 'approved'
+                    ? '已確認出席！順手把活動加入日曆'
+                    : '已提交出席報名！先將活動加入日曆'}
+                </h2>
+                <p className="mt-0.5 text-xs text-emerald-800/90">
+                  .ics 檔案已內建活動前 1 天及前 2 小時雙重系統提醒，不怕忘記開局時間。
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              aria-label="關閉日曆提示"
+              onClick={dismissCalendarPrompt}
+              className="rounded-lg p-1 text-emerald-700/70 hover:bg-emerald-100 hover:text-emerald-900"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => {
+                downloadICS(party, shareUrl);
+                dismissCalendarPrompt();
+                toast.success('已下載日曆檔案（含前 1 天＋前 2 小時提醒）');
+              }}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700"
+            >
+              <Download className="h-3.5 w-3.5" />
+              加入 Apple / 系統日曆 (.ics)
+            </button>
+            <a
+              href={buildGoogleCalendarUrl(party, shareUrl)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => {
+                dismissCalendarPrompt();
+                toast.success('已開啟 Google 日曆，按「儲存」即完成');
+              }}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-300 transition hover:bg-emerald-100/60"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              加入 Google 日曆
+            </a>
+          </div>
+        </section>
+      ) : null}
       {/* 主辦人專用：待審核報名列表 */}
       {isAdmin && pendingRsvps.length > 0 ? (
         <section className="rounded-3xl bg-amber-50/70 p-5 shadow-sm ring-1 ring-amber-200">

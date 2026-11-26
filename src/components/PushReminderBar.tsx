@@ -92,7 +92,7 @@ export function PushReminderBar({
         vapidKey: effectiveVapidKey,
       });
       setSubscribed(true);
-      toast.success('已開啟開局前通知！活動前 24 小時及 2 小時會推送提醒你');
+      toast.success('已開啟通知！開局前及主辦人更新置頂公告時會推送提醒你');
     } catch (err) {
       const msg = err instanceof Error ? err.message : '開啟推送通知失敗';
       toast.error(msg);
@@ -205,10 +205,10 @@ export function PushReminderBar({
             )}
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-800">
-                {subscribed ? '已開啟開局前手機推送通知' : '開局前手機推送通知'}
+                {subscribed ? '已開啟活動手機推送通知' : '活動手機推送通知'}
               </p>
               <p className="text-[11px] text-slate-500">
-                活動開始前 24 小時及 2 小時自動提醒
+                開局前（24h／2h）及主辦人更新置頂公告時自動提醒
                 {isAdmin && subscriberCount !== null ? ` · 目前 ${subscriberCount} 人已訂閱` : ''}
               </p>
             </div>

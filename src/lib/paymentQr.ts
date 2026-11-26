@@ -14,10 +14,11 @@ function crc16Ccitt(str: string): string {
 }
 
 /**
- * 將香港轉數快電話、FPS ID 或電郵轉為香港金管局 HKQR (EMVCo) 標準字串，
- * 若已是 EMVCo 字串則原樣返回。
+ * 將香港轉數快電話、FPS ID 或電郵轉為香港金管局 HKQR (EMVCo) 標準字串。
+ * 若提供大於 0 的 amount，會自動產生動態二維碼（Tag 01=12）並嵌入交易金額（Tag 54），
+ * 銀行 App 掃描或匯入後將自動帶入精確港幣金額。
  */
-export function buildFpsHkqrPayload(fpsInfo: string): string {
+export function buildFpsHkqrPayload(fpsInfo: string, amount?: number): string {
   const trimmed = fpsInfo.trim();
   if (!trimmed) return '';
   if (trimmed.startsWith('000201')) return trimmed;
@@ -50,13 +51,17 @@ export function buildFpsHkqrPayload(fpsInfo: string): string {
     return trimmed;
   }
 
+  const hasAmount = typeof amount === 'number' && Number.isFinite(amount) && amount > 0;
+  const formattedAmount = hasAmount ? (Math.round(amount * 100) / 100).toFixed(2) : '';
+
   const merchantAccount = tlv('00', 'hk.com.hkicl') + tlv(proxySubtag, proxyValue);
   const body =
     tlv('00', '01') +
-    tlv('01', '11') +
+    tlv('01', hasAmount ? '12' : '11') +
     tlv('26', merchantAccount) +
     tlv('52', '0000') +
     tlv('53', '344') +
+    (hasAmount ? tlv('54', formattedAmount) : '') +
     tlv('58', 'HK') +
     tlv('59', 'NA') +
     tlv('60', 'HK') +

@@ -11,24 +11,28 @@ import type {
 } from './types/party';
 import {
   auth,
-  isAdminUser,
+  isOwnerUser,
   signInWithGoogle,
   signOutUser,
 } from './lib/firebase';
 import {
+  addAdminEmail,
   adminRemoveGuest,
   adminSetRsvpApproval,
   adminUpdateGuestStatus,
   listRecentParties,
   readCachedAppTheme,
   readCachedHostPaymentProfile,
+  removeAdminEmail,
   saveAppTheme,
   saveHostPaymentProfile,
   saveParty,
+  subscribeAdminEmails,
   subscribeAllParties,
   subscribeAppTheme,
   subscribeHostPaymentProfile,
   subscribeParty,
+  subscribeSelfAdminStatus,
   upsertSelfRsvp,
 } from './lib/partyStore';
 import {
@@ -73,8 +77,11 @@ export function App() {
     readCachedHostPaymentProfile()
   );
   const [appTheme, setAppTheme] = useState<AppTheme>(() => readCachedAppTheme());
+  const [isCoAdmin, setIsCoAdmin] = useState(false);
+  const [adminEmails, setAdminEmails] = useState<string[]>([]);
 
-  const isAdmin = isAdminUser(user);
+  const isOwner = isOwnerUser(user);
+  const isAdmin = isOwner || isCoAdmin;
   const activeTheme: AppTheme = partyId && party?.theme ? party.theme : appTheme;
 
   // 全站同步監聽首頁／預設主題風格
@@ -95,6 +102,26 @@ export function App() {
     });
     return () => unsub();
   }, []);
+
+  // 監聽目前登入帳號是否已被加入共同管理員名單
+  useEffect(() => {
+    if (!user?.email || isOwner) {
+      setIsCoAdmin(false);
+      return;
+    }
+    return subscribeSelfAdminStatus(user.email, setIsCoAdmin);
+  }, [user?.email, isOwner]);
+
+  // 主管理員即時監聽共同管理員郵件清單
+  useEffect(() => {
+    if (!isOwner) {
+      setAdminEmails([]);
+      return;
+    }
+    return subscribeAdminEmails(setAdminEmails, () => {
+      setAdminEmails([]);
+    });
+  }, [isOwner]);
 
   const refreshList = useCallback(() => {
     setRecentParties(listRecentParties());
@@ -330,6 +357,18 @@ export function App() {
     }
   }
 
+  async function handleAddAdminEmail(email: string) {
+    if (!isOwner) return;
+    const added = await addAdminEmail(email);
+    toast.success(`已新增管理員：${added}`);
+  }
+
+  async function handleRemoveAdminEmail(email: string) {
+    if (!isOwner) return;
+    await removeAdminEmail(email);
+    toast.success(`已移除管理員：${email}`);
+  }
+
   if (!partyId) {
     if (!authReady) {
       return (
@@ -343,6 +382,10 @@ export function App() {
       <HomeView
         recentParties={recentParties}
         isAdmin={isAdmin}
+        isOwner={isOwner}
+        adminEmails={adminEmails}
+        onAddAdminEmail={handleAddAdminEmail}
+        onRemoveAdminEmail={handleRemoveAdminEmail}
         currentUser={user}
         hostPaymentProfile={hostPaymentProfile}
         appTheme={appTheme}

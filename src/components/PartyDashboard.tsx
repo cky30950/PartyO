@@ -488,6 +488,7 @@ export function PartyDashboard({
           <ExpensesTab
             party={party}
             isAdmin={isAdmin}
+            currentUser={currentUser}
             shareUrl={shareUrl}
             appTheme={appTheme}
             hostPaymentProfile={hostPaymentProfile}

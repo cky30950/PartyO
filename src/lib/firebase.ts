@@ -24,6 +24,8 @@ export const ADMIN_EMAIL = (
   import.meta.env.VITE_ADMIN_EMAIL || 'cky30950@gmail.com'
 ).trim().toLowerCase();
 
+export const OWNER_EMAIL = ADMIN_EMAIL;
+
 export const app = initializeApp(firebaseConfig);
 export const rtdb = getDatabase(app);
 export const auth = getAuth(app);
@@ -31,8 +33,20 @@ export const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
+export function encodeEmailKey(email: string): string {
+  return email.trim().toLowerCase().replace(/\./g, ',');
+}
+
+export function decodeEmailKey(key: string): string {
+  return key.replace(/,/g, '.');
+}
+
+export function isOwnerUser(user: User | null): boolean {
+  return Boolean(user?.email && user.email.trim().toLowerCase() === OWNER_EMAIL);
+}
+
 export function isAdminUser(user: User | null): boolean {
-  return Boolean(user?.email && user.email.trim().toLowerCase() === ADMIN_EMAIL);
+  return isOwnerUser(user);
 }
 
 export async function signInWithGoogle(): Promise<User> {

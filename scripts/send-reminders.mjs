@@ -46,6 +46,12 @@ function formatLocalTime(date) {
   }).format(date);
 }
 
+function truncateText(text, maxLen = 140) {
+  const singleLine = text.replace(/\s+/g, ' ').trim();
+  if (singleLine.length <= maxLen) return singleLine;
+  return `${singleLine.slice(0, maxLen - 1)}…`;
+}
+
 const REMINDER_WINDOWS = [
   {
     key: 'h24',
@@ -73,6 +79,74 @@ const REMINDER_WINDOWS = [
   },
 ];
 
+async function sendMulticastAndCleanup({
+  partyId,
+  partyTitle,
+  tokenEntries,
+  title,
+  body,
+  tag,
+  label,
+}) {
+  const linkUrl = APP_BASE_URL
+    ? `${APP_BASE_URL}?p=${encodeURIComponent(partyId)}`
+    : `./?p=${encodeURIComponent(partyId)}`;
+  const tokens = tokenEntries.map(([, rec]) => rec.token);
+
+  const response = await messaging.sendEachForMulticast({
+    tokens,
+    notification: { title, body },
+    data: {
+      partyId,
+      title,
+      body,
+      url: linkUrl,
+      tag,
+    },
+    webpush: {
+      notification: {
+        title,
+        body,
+        icon: APP_BASE_URL ? `${APP_BASE_URL}icon.svg` : './icon.svg',
+        badge: APP_BASE_URL ? `${APP_BASE_URL}icon.svg` : './icon.svg',
+      },
+      ...(APP_BASE_URL ? { fcmOptions: { link: linkUrl } } : {}),
+    },
+  });
+
+  console.log(
+    `[${label}] ${partyTitle} (${partyId}): 成功 ${response.successCount} / 失敗 ${response.failureCount}`
+  );
+
+  // 自動清理失效的裝置 Token
+  const cleanupTasks = [];
+  const validEntries = [];
+  response.responses.forEach((res, idx) => {
+    if (!res.success) {
+      const code = res.error?.code || '';
+      if (
+        code === 'messaging/registration-token-not-registered' ||
+        code === 'messaging/invalid-registration-token'
+      ) {
+        const [uid] = tokenEntries[idx];
+        cleanupTasks.push(db.ref(`partyPushTokens/${partyId}/${uid}`).remove());
+        return;
+      }
+    }
+    validEntries.push(tokenEntries[idx]);
+  });
+
+  if (cleanupTasks.length > 0) {
+    await Promise.all(cleanupTasks);
+    console.log(`已清理 ${cleanupTasks.length} 個失效的推送 Token`);
+  }
+
+  return {
+    successCount: response.successCount,
+    remainingEntries: validEntries,
+  };
+}
+
 async function run() {
   const now = new Date();
   const [partiesSnap, tokensSnap, sentSnap] = await Promise.all([
@@ -90,19 +164,57 @@ async function run() {
   for (const [partyId, party] of Object.entries(parties)) {
     if (!party || party.manuallyEnded) continue;
 
-    const startDate = parsePartyStartTime(party.startTime);
-    if (!startDate) continue;
-
-    const hoursUntilStart = (startDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-    if (hoursUntilStart < -0.5 || hoursUntilStart > 25) continue;
-
     const partyTokensMap = allTokens[partyId] || {};
-    const tokenEntries = Object.entries(partyTokensMap).filter(
+    let tokenEntries = Object.entries(partyTokensMap).filter(
       ([, rec]) => rec && typeof rec.token === 'string' && rec.token.trim().length > 0
     );
     if (tokenEntries.length === 0) continue;
 
     const sentForParty = allSent[partyId] || {};
+
+    // 1. 主辦人置頂公告更新推播（只要 48 小時內有新公告且未曾推播過該版本）
+    const announcementText = typeof party.announcement === 'string' ? party.announcement.trim() : '';
+    const announcementUpdatedAt =
+      typeof party.announcementUpdatedAt === 'string' ? party.announcementUpdatedAt.trim() : '';
+
+    if (
+      announcementText &&
+      announcementUpdatedAt &&
+      sentForParty.lastAnnouncementSentAt !== announcementUpdatedAt
+    ) {
+      const annDate = new Date(announcementUpdatedAt);
+      const hoursSinceUpdate = Number.isNaN(annDate.getTime())
+        ? Infinity
+        : (now.getTime() - annDate.getTime()) / (1000 * 60 * 60);
+
+      if (hoursSinceUpdate >= -0.1 && hoursSinceUpdate <= 48) {
+        const result = await sendMulticastAndCleanup({
+          partyId,
+          partyTitle: party.title,
+          tokenEntries,
+          title: `📢 ${party.title}：主辦人最新公告`,
+          body: truncateText(announcementText, 140),
+          tag: `partyo-${partyId}-ann-${announcementUpdatedAt}`,
+          label: '置頂公告更新',
+        });
+        tokenEntries = result.remainingEntries;
+        if (result.successCount > 0) {
+          totalSentCount += result.successCount;
+          await db
+            .ref(`partyRemindersSent/${partyId}/lastAnnouncementSentAt`)
+            .set(announcementUpdatedAt);
+        }
+      }
+    }
+
+    if (tokenEntries.length === 0) continue;
+
+    // 2. 活動開局前定時提醒（前 24 小時與前 2 小時）
+    const startDate = parsePartyStartTime(party.startTime);
+    if (!startDate) continue;
+
+    const hoursUntilStart = (startDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+    if (hoursUntilStart < -0.5 || hoursUntilStart > 25) continue;
 
     for (const win of REMINDER_WINDOWS) {
       if (sentForParty[win.key]) continue;
@@ -110,60 +222,19 @@ async function run() {
         continue;
       }
 
-      const title = win.buildTitle(party);
-      const body = win.buildBody(party, startDate);
-      const linkUrl = APP_BASE_URL
-        ? `${APP_BASE_URL}?p=${encodeURIComponent(partyId)}`
-        : `./?p=${encodeURIComponent(partyId)}`;
-
-      const tokens = tokenEntries.map(([, rec]) => rec.token);
-
-      const response = await messaging.sendEachForMulticast({
-        tokens,
-        notification: { title, body },
-        data: {
-          partyId,
-          title,
-          body,
-          url: linkUrl,
-          tag: `partyo-${partyId}-${win.key}`,
-        },
-        webpush: {
-          notification: {
-            title,
-            body,
-            icon: APP_BASE_URL ? `${APP_BASE_URL}icon.svg` : './icon.svg',
-            badge: APP_BASE_URL ? `${APP_BASE_URL}icon.svg` : './icon.svg',
-          },
-          ...(APP_BASE_URL ? { fcmOptions: { link: linkUrl } } : {}),
-        },
+      const result = await sendMulticastAndCleanup({
+        partyId,
+        partyTitle: party.title,
+        tokenEntries,
+        title: win.buildTitle(party),
+        body: win.buildBody(party, startDate),
+        tag: `partyo-${partyId}-${win.key}`,
+        label: win.label,
       });
+      tokenEntries = result.remainingEntries;
 
-      console.log(
-        `[${win.label}] ${party.title} (${partyId}): 成功 ${response.successCount} / 失敗 ${response.failureCount}`
-      );
-
-      // 自動清理失效的裝置 Token
-      const cleanupTasks = [];
-      response.responses.forEach((res, idx) => {
-        if (!res.success) {
-          const code = res.error?.code || '';
-          if (
-            code === 'messaging/registration-token-not-registered' ||
-            code === 'messaging/invalid-registration-token'
-          ) {
-            const [uid] = tokenEntries[idx];
-            cleanupTasks.push(db.ref(`partyPushTokens/${partyId}/${uid}`).remove());
-          }
-        }
-      });
-      if (cleanupTasks.length > 0) {
-        await Promise.all(cleanupTasks);
-        console.log(`已清理 ${cleanupTasks.length} 個失效的推送 Token`);
-      }
-
-      if (response.successCount > 0) {
-        totalSentCount += response.successCount;
+      if (result.successCount > 0) {
+        totalSentCount += result.successCount;
         await db.ref(`partyRemindersSent/${partyId}/${win.key}`).set(now.toISOString());
       }
     }

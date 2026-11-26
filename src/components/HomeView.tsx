@@ -12,8 +12,13 @@ import {
   Archive,
   CopyPlus,
   X,
+  Shield,
+  UserPlus,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import type { AppTheme, HostPaymentProfile, Party } from '../types/party';
+import { OWNER_EMAIL } from '../lib/firebase';
 import {
   deleteParty,
   generateId,
@@ -29,6 +34,10 @@ import { ThemeSwitcher } from './ThemeSwitcher';
 interface HomeViewProps {
   recentParties: Party[];
   isAdmin: boolean;
+  isOwner?: boolean;
+  adminEmails?: string[];
+  onAddAdminEmail?: (email: string) => Promise<void>;
+  onRemoveAdminEmail?: (email: string) => Promise<void>;
   currentUser: User | null;
   hostPaymentProfile?: HostPaymentProfile | null;
   appTheme?: AppTheme;
@@ -62,6 +71,10 @@ function getDefaultStartTime(): string {
 export function HomeView({
   recentParties,
   isAdmin,
+  isOwner = false,
+  adminEmails = [],
+  onAddAdminEmail,
+  onRemoveAdminEmail,
   currentUser,
   hostPaymentProfile = null,
   appTheme = 'tavern',
@@ -94,6 +107,10 @@ export function HomeView({
   );
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [showAdminManager, setShowAdminManager] = useState(false);
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [adminEmailBusy, setAdminEmailBusy] = useState(false);
+  const [adminEmailError, setAdminEmailError] = useState('');
 
   const { activeParties, endedParties } = useMemo(() => {
     const now = new Date();
@@ -258,6 +275,116 @@ export function HomeView({
               label={`首頁預設主題（${THEME_LIST.length} 款可選）`}
               onChangeTheme={onChangeTheme}
             />
+          </div>
+        ) : null}
+
+        {isOwner && onAddAdminEmail && onRemoveAdminEmail ? (
+          <div className="mt-3 rounded-2xl bg-white p-3.5 shadow-sm ring-1 ring-slate-200/80">
+            <button
+              type="button"
+              onClick={() => setShowAdminManager((v) => !v)}
+              className="flex w-full items-center justify-between gap-2 text-left"
+            >
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                <Shield className="h-4 w-4 text-brand-600" />
+                管理員郵件設定（共 {adminEmails.length + 1} 位管理員）
+              </span>
+              {showAdminManager ? (
+                <ChevronUp className="h-4 w-4 text-slate-400" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-slate-400" />
+              )}
+            </button>
+
+            {showAdminManager ? (
+              <div className="mt-3 space-y-3 border-t border-slate-100 pt-3">
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const trimmed = newAdminEmail.trim();
+                    if (!trimmed) return;
+                    setAdminEmailBusy(true);
+                    setAdminEmailError('');
+                    try {
+                      await onAddAdminEmail(trimmed);
+                      setNewAdminEmail('');
+                    } catch (err) {
+                      setAdminEmailError(
+                        err instanceof Error ? err.message : '新增失敗，請確認已發佈最新資料庫規則'
+                      );
+                    } finally {
+                      setAdminEmailBusy(false);
+                    }
+                  }}
+                  className="flex gap-2"
+                >
+                  <input
+                    type="email"
+                    required
+                    value={newAdminEmail}
+                    onChange={(e) => setNewAdminEmail(e.target.value)}
+                    placeholder="輸入要授權的 Google 郵件（例如：friend@gmail.com）"
+                    className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-brand-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={adminEmailBusy}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-brand-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60"
+                  >
+                    <UserPlus className="h-3.5 w-3.5" />
+                    {adminEmailBusy ? '新增中...' : '新增'}
+                  </button>
+                </form>
+
+                {adminEmailError ? (
+                  <p className="text-xs font-medium text-rose-600">{adminEmailError}</p>
+                ) : null}
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-xs">
+                    <span className="truncate font-semibold text-slate-800">{OWNER_EMAIL}</span>
+                    <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                      主管理員
+                    </span>
+                  </div>
+                  {adminEmails.map((email) => (
+                    <div
+                      key={email}
+                      className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs"
+                    >
+                      <span className="truncate font-medium text-slate-700">{email}</span>
+                      <button
+                        type="button"
+                        disabled={adminEmailBusy}
+                        onClick={async () => {
+                          const ok = window.confirm(`確定要移除「${email}」的管理員權限嗎？`);
+                          if (!ok) return;
+                          setAdminEmailBusy(true);
+                          setAdminEmailError('');
+                          try {
+                            await onRemoveAdminEmail(email);
+                          } catch (err) {
+                            setAdminEmailError(
+                              err instanceof Error ? err.message : '移除失敗'
+                            );
+                          } finally {
+                            setAdminEmailBusy(false);
+                          }
+                        }}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-60"
+                      >
+                        <Trash2 className="h-3 w-3" /> 移除
+                      </button>
+                    </div>
+                  ))}
+                  {adminEmails.length === 0 ? (
+                    <p className="px-1 text-[11px] text-slate-400">
+                      尚未新增其他共同管理員。新增後對方使用該 Google 帳號登入即自動享有主辦人管理權限。
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 

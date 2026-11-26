@@ -1,5 +1,5 @@
 import { get, onValue, ref, remove, set, update } from 'firebase/database';
-import { rtdb } from './firebase';
+import { decodeEmailKey, encodeEmailKey, OWNER_EMAIL, rtdb } from './firebase';
 import { isValidAppTheme } from './themes';
 import type {
   AppTheme,
@@ -526,4 +526,81 @@ export function subscribeAppTheme(
       onError?.(err);
     }
   );
+}
+
+/**
+ * 檢查目前登入用戶是否在雲端共同管理員名單內（僅讀取自己的 email key）
+ */
+export function subscribeSelfAdminStatus(
+  email: string,
+  onData: (isCoAdmin: boolean) => void
+): () => void {
+  const key = encodeEmailKey(email);
+  const selfRef = ref(rtdb, `adminConfig/admins/${key}`);
+  return onValue(
+    selfRef,
+    (snap) => {
+      onData(snap.val() === true);
+    },
+    () => {
+      onData(false);
+    }
+  );
+}
+
+/**
+ * 主管理員專用：即時監聽所有已新增的共同管理員郵件清單
+ */
+export function subscribeAdminEmails(
+  onData: (emails: string[]) => void,
+  onError?: (err: Error) => void
+): () => void {
+  const adminsRef = ref(rtdb, 'adminConfig/admins');
+  return onValue(
+    adminsRef,
+    (snap) => {
+      if (!snap.exists()) {
+        onData([]);
+        return;
+      }
+      const raw = snap.val() as Record<string, unknown>;
+      const emails = Object.entries(raw)
+        .filter(([, val]) => val === true)
+        .map(([key]) => decodeEmailKey(key))
+        .filter((email) => email !== OWNER_EMAIL)
+        .sort((a, b) => a.localeCompare(b));
+      onData(emails);
+    },
+    (err) => {
+      onError?.(err);
+    }
+  );
+}
+
+/**
+ * 主管理員專用：新增共同管理員郵件
+ */
+export async function addAdminEmail(rawEmail: string): Promise<string> {
+  const normalized = rawEmail.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+    throw new Error('請輸入有效的電郵地址');
+  }
+  if (normalized === OWNER_EMAIL) {
+    throw new Error('此電郵已是主管理員，無需重複新增');
+  }
+  const key = encodeEmailKey(normalized);
+  await set(ref(rtdb, `adminConfig/admins/${key}`), true);
+  return normalized;
+}
+
+/**
+ * 主管理員專用：移除共同管理員郵件
+ */
+export async function removeAdminEmail(rawEmail: string): Promise<void> {
+  const normalized = rawEmail.trim().toLowerCase();
+  if (normalized === OWNER_EMAIL) {
+    throw new Error('無法移除主管理員帳號');
+  }
+  const key = encodeEmailKey(normalized);
+  await remove(ref(rtdb, `adminConfig/admins/${key}`));
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import type { User } from 'firebase/auth';
 import { QRCodeCanvas, QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
 import {
@@ -28,7 +29,7 @@ import type {
   PaymentMethod,
   SplitType,
 } from '../types/party';
-import { generateId, getAllGuests } from '../lib/partyStore';
+import { generateId, getAllGuests, isHostGuest } from '../lib/partyStore';
 import {
   buildFpsHkqrPayload,
   compressQrImageFile,
@@ -48,6 +49,7 @@ import {
 interface ExpensesTabProps {
   party: Party;
   isAdmin: boolean;
+  currentUser: User | null;
   shareUrl: string;
   appTheme: AppTheme;
   hostPaymentProfile: HostPaymentProfile | null;
@@ -70,11 +72,12 @@ const SPLIT_LABELS: Record<SplitType, string> = {
   exact: '自訂金額',
 };
 
-type ActiveQrModal = 'payme' | 'fps' | null;
+type ActiveQrModal = 'payme' | 'fps' | 'fps-personal' | null;
 
 export function ExpensesTab({
   party,
   isAdmin,
+  currentUser,
   shareUrl,
   appTheme,
   hostPaymentProfile,
@@ -178,6 +181,69 @@ export function ExpensesTab({
     (t) => getTransferPaymentStatus(t, party.settlementPayments[t.key]).state === 'paid'
   ).length;
 
+  // 依據目前登入帳號配對參加者，找出該用戶與主辦人（及其他成員）的專屬轉帳明細
+  const myGuest = useMemo(() => {
+    if (!currentUser) return null;
+    const emailLower = currentUser.email?.trim().toLowerCase();
+    return (
+      allGuests.find(
+        (g) =>
+          g.uid === currentUser.uid ||
+          g.id === currentUser.uid ||
+          (emailLower && g.email?.trim().toLowerCase() === emailLower)
+      ) ?? null
+    );
+  }, [allGuests, currentUser]);
+
+  const myPersonalSettlement = useMemo(() => {
+    if (!myGuest) return null;
+    const guestMap = new Map(allGuests.map((g) => [g.id, g]));
+    const outgoing = transfers
+      .filter((t) => t.fromGuestId === myGuest.id)
+      .map((t) => {
+        const status = getTransferPaymentStatus(t, party.settlementPayments[t.key]);
+        const target = guestMap.get(t.toGuestId);
+        return {
+          transfer: t,
+          status,
+          toIsHost: Boolean(target && isHostGuest(target)),
+        };
+      });
+    const incoming = transfers
+      .filter((t) => t.toGuestId === myGuest.id)
+      .map((t) => ({
+        transfer: t,
+        status: getTransferPaymentStatus(t, party.settlementPayments[t.key]),
+      }));
+
+    const unpaidHostTransfer =
+      outgoing.find((item) => item.toIsHost && item.status.remainingAmount > 0) ?? null;
+    const unpaidOtherOutgoing = outgoing.filter(
+      (item) => !item.toIsHost && item.status.remainingAmount > 0
+    );
+    const unpaidIncoming = incoming.filter((item) => item.status.remainingAmount > 0);
+    return {
+      outgoing,
+      incoming,
+      unpaidHostTransfer,
+      unpaidOtherOutgoing,
+      unpaidIncoming,
+    };
+  }, [myGuest, allGuests, transfers, party.settlementPayments]);
+
+  const personalDueAmount = myPersonalSettlement?.unpaidHostTransfer?.status.remainingAmount ?? 0;
+  const personalDuePlainText = useMemo(() => {
+    if (personalDueAmount <= 0) return '';
+    return Number.isInteger(personalDueAmount)
+      ? String(personalDueAmount)
+      : personalDueAmount.toFixed(2);
+  }, [personalDueAmount]);
+
+  const personalFpsQrValue = useMemo(() => {
+    if (personalDueAmount <= 0 || !party.fpsInfo?.trim()) return '';
+    return buildFpsHkqrPayload(party.fpsInfo.trim(), personalDueAmount);
+  }, [party.fpsInfo, personalDueAmount]);
+
   function toggleParticipant(id: string) {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
@@ -217,8 +283,36 @@ export function ExpensesTab({
     }
   }
 
-  function handleDownloadModalQr(type: 'payme' | 'fps') {
-    const customImg = type === 'payme' ? party.paymeQrImage : party.fpsQrImage;
+  async function handleOpenPaymeWithAmount() {
+    if (!party.paymeLink) return;
+    if (personalDuePlainText) {
+      try {
+        await navigator.clipboard.writeText(personalDuePlainText);
+        toast.success(`已複製金額 ${personalDuePlainText}，進入 PayMe 貼上即可付款`);
+      } catch {
+        toast.info(`請於 PayMe 輸入金額 ${personalDuePlainText}`);
+      }
+    }
+    window.open(party.paymeLink, '_blank', 'noopener,noreferrer');
+  }
+
+  async function handleCopyPersonalAmount() {
+    if (!personalDuePlainText) return;
+    try {
+      await navigator.clipboard.writeText(personalDuePlainText);
+      toast.success(`已複製應付金額 ${personalDuePlainText}`);
+    } catch {
+      toast.error('複製金額失敗');
+    }
+  }
+
+  function handleDownloadModalQr(type: 'payme' | 'fps' | 'fps-personal') {
+    const customImg =
+      type === 'payme'
+        ? party.paymeQrImage
+        : type === 'fps'
+          ? party.fpsQrImage
+          : '';
     let dataUrl = customImg || '';
     if (!dataUrl && modalQrCanvasRef.current) {
       dataUrl = modalQrCanvasRef.current.toDataURL('image/png');
@@ -226,7 +320,10 @@ export function ExpensesTab({
     if (!dataUrl) return;
     const link = document.createElement('a');
     link.href = dataUrl;
-    link.download = `${type === 'payme' ? 'payme' : 'fps'}_qr.png`;
+    link.download =
+      type === 'fps-personal'
+        ? `fps_${personalDuePlainText || 'pay'}_qr.png`
+        : `${type === 'payme' ? 'payme' : 'fps'}_qr.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -599,6 +696,163 @@ export function ExpensesTab({
 
   return (
     <div className="space-y-5">
+      {/* 已登入參加者的個人專屬結算與指定金額付款卡 */}
+      {!isAdmin && myGuest && myPersonalSettlement && party.expenses.length > 0 ? (
+        <section className="rounded-3xl bg-white p-5 shadow-sm ring-2 ring-brand-300/80">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
+              <Wallet className="h-4 w-4 text-brand-600" />
+              你的專屬結算（{myGuest.name}）
+            </h2>
+            {personalDueAmount > 0 ? (
+              <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-bold text-rose-700">
+                待付 {formatMoney(personalDueAmount, party.currency)}
+              </span>
+            ) : myPersonalSettlement.unpaidOtherOutgoing.length === 0 ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
+                <CheckCircle2 className="h-3 w-3" /> 已結清
+              </span>
+            ) : null}
+          </div>
+
+          {myPersonalSettlement.unpaidHostTransfer ? (
+            <div className="mt-3 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-rose-50/70 px-4 py-3 ring-1 ring-rose-200/80">
+                <div>
+                  <p className="text-xs font-semibold text-slate-600">
+                    你需轉帳給 {myPersonalSettlement.unpaidHostTransfer.transfer.toName}
+                  </p>
+                  <p className="mt-0.5 text-xl font-extrabold text-brand-600">
+                    {formatMoney(personalDueAmount, party.currency)}
+                  </p>
+                  {myPersonalSettlement.unpaidHostTransfer.status.state === 'partial' ? (
+                    <p className="mt-0.5 text-[11px] text-amber-800">
+                      原應付{' '}
+                      {formatMoney(
+                        myPersonalSettlement.unpaidHostTransfer.transfer.amount,
+                        party.currency
+                      )}
+                      ，已付{' '}
+                      {formatMoney(
+                        myPersonalSettlement.unpaidHostTransfer.status.paidAmount,
+                        party.currency
+                      )}
+                    </p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyPersonalAmount}
+                  className="inline-flex items-center gap-1 rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50"
+                >
+                  <Copy className="h-3.5 w-3.5" /> 複製金額
+                </button>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {/* 轉數快動態金額二維碼（免手動輸入金額） */}
+                {personalFpsQrValue ? (
+                  <div className="flex flex-col items-center rounded-2xl bg-indigo-50/60 p-3.5 text-center ring-1 ring-indigo-200/80">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-bold text-indigo-800">
+                      <QrCode className="h-3 w-3" /> 轉數快 FPS · 已鎖定金額
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveQrModal('fps-personal')}
+                      title="點擊放大並儲存專屬轉數快付款碼"
+                      className="group mt-2.5 overflow-hidden rounded-2xl bg-white p-2 shadow-sm ring-1 ring-indigo-200 transition hover:scale-[1.02]"
+                    >
+                      <div className="flex h-32 w-32 items-center justify-center rounded bg-white p-1">
+                        <QRCodeSVG
+                          value={personalFpsQrValue}
+                          size={124}
+                          level="M"
+                          includeMargin
+                          className="h-full w-full"
+                        />
+                      </div>
+                      <span className="mt-1 block text-[10px] font-semibold text-indigo-600">
+                        點擊放大／存圖掃碼自動填 {formatMoney(personalDueAmount, party.currency)}
+                      </span>
+                    </button>
+                  </div>
+                ) : null}
+
+                {/* PayMe 一鍵複製金額並跳轉 */}
+                {party.paymeLink ? (
+                  <div className="flex flex-col justify-between rounded-2xl bg-rose-50/60 p-3.5 ring-1 ring-rose-200/80">
+                    <div>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-bold text-rose-700">
+                        <ExternalLink className="h-3 w-3" /> PayMe 快速付款
+                      </span>
+                      <p className="mt-2 text-xs leading-relaxed text-slate-600">
+                        點擊下方按鈕會自動複製應付金額{' '}
+                        <strong className="text-slate-900">{personalDuePlainText}</strong>{' '}
+                        並開啟主辦人 PayMe，進入後直接貼上銀碼即可完成付款。
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleOpenPaymeWithAmount}
+                      className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-brand-700"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      開啟 PayMe（自動複製 {personalDuePlainText}）
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {myPersonalSettlement.unpaidOtherOutgoing.length > 0 ? (
+            <div className="mt-3 space-y-1.5">
+              {myPersonalSettlement.unpaidOtherOutgoing.map(({ transfer, status }) => (
+                <div
+                  key={transfer.key}
+                  className="flex items-center justify-between rounded-xl bg-slate-50 px-3.5 py-2 text-xs ring-1 ring-slate-200/70"
+                >
+                  <span className="text-slate-700">
+                    另需轉帳給 <strong>{transfer.toName}</strong>
+                  </span>
+                  <span className="font-bold text-brand-600">
+                    {formatMoney(status.remainingAmount, party.currency)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {myPersonalSettlement.unpaidIncoming.length > 0 ? (
+            <div className="mt-3 space-y-1.5">
+              {myPersonalSettlement.unpaidIncoming.map(({ transfer, status }) => (
+                <div
+                  key={transfer.key}
+                  className="flex items-center justify-between rounded-xl bg-emerald-50/70 px-3.5 py-2 text-xs ring-1 ring-emerald-200/80"
+                >
+                  <span className="text-emerald-900">
+                    <strong>{transfer.fromName}</strong> 應轉帳給你
+                  </span>
+                  <span className="font-bold text-emerald-700">
+                    +{formatMoney(status.remainingAmount, party.currency)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {!myPersonalSettlement.unpaidHostTransfer &&
+          myPersonalSettlement.unpaidOtherOutgoing.length === 0 &&
+          myPersonalSettlement.unpaidIncoming.length === 0 ? (
+            <p className="mt-2.5 rounded-2xl bg-emerald-50/70 px-3.5 py-2.5 text-xs font-medium text-emerald-800">
+              {unassignedExpenses.length > 0
+                ? '目前所有已分攤的項目你均已結清（另有待分攤開支將於確認後更新）。'
+                : '你已結清所有費用，無需轉帳！'}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
       {/* 頂層：主辦人收款資料與可點擊二維碼（PayMe 及轉數快） */}
       {hasAnyPayInfo || isAdmin ? (
         <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
@@ -1517,9 +1771,13 @@ export function ExpensesTab({
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-xs rounded-3xl bg-white p-6 text-center shadow-xl"
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-bold text-slate-900">
-                {activeQrModal === 'payme' ? 'PayMe 收款二維碼' : '轉數快 FPS 收款二維碼'}
+                {activeQrModal === 'payme'
+                  ? 'PayMe 收款二維碼'
+                  : activeQrModal === 'fps-personal'
+                    ? `轉數快專屬付款碼（${formatMoney(personalDueAmount, party.currency)}）`
+                    : '轉數快 FPS 收款二維碼'}
               </h3>
               <button
                 type="button"
@@ -1548,6 +1806,14 @@ export function ExpensesTab({
                     includeMargin
                   />
                 )
+              ) : activeQrModal === 'fps-personal' ? (
+                <QRCodeCanvas
+                  ref={modalQrCanvasRef}
+                  value={personalFpsQrValue}
+                  size={224}
+                  level="M"
+                  includeMargin
+                />
               ) : party.fpsQrImage ? (
                 <img
                   src={party.fpsQrImage}
@@ -1566,8 +1832,9 @@ export function ExpensesTab({
             </div>
 
             <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
-              可直接掃描，或點下方下載二維碼後於{' '}
-              {activeQrModal === 'payme' ? 'PayMe' : '銀行 App'} 匯入付款。
+              {activeQrModal === 'fps-personal'
+                ? `此二維碼已自動嵌入應付金額 ${formatMoney(personalDueAmount, party.currency)}，可先儲存圖片再於銀行 App 或 PayMe 匯入掃描，無須手動輸入銀碼。`
+                : `可直接掃描，或點下方下載二維碼後於 ${activeQrModal === 'payme' ? 'PayMe' : '銀行 App'} 匯入付款。`}
             </p>
 
             <div className="mt-4 space-y-2">
@@ -1582,7 +1849,7 @@ export function ExpensesTab({
                 </a>
               ) : null}
 
-              {activeQrModal === 'fps' && party.fpsInfo ? (
+              {(activeQrModal === 'fps' || activeQrModal === 'fps-personal') && party.fpsInfo ? (
                 <button
                   type="button"
                   onClick={handleCopyFps}
@@ -1605,7 +1872,8 @@ export function ExpensesTab({
                 onClick={() => handleDownloadModalQr(activeQrModal)}
                 className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-slate-800"
               >
-                <Download className="h-4 w-4" /> 儲存二維碼圖片
+                <Download className="h-4 w-4" />{' '}
+                {activeQrModal === 'fps-personal' ? '儲存專屬付款碼圖片' : '儲存二維碼圖片'}
               </button>
 
               <button
