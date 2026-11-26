@@ -72,6 +72,7 @@ export function App() {
   const [party, setParty] = useState<Party | null>(null);
   const [loading, setLoading] = useState<boolean>(Boolean(partyId));
   const [syncError, setSyncError] = useState<string>('');
+  const [listSyncError, setListSyncError] = useState<string>('');
   const [recentParties, setRecentParties] = useState<Party[]>(() => listRecentParties());
   const [hostPaymentProfile, setHostPaymentProfile] = useState<HostPaymentProfile | null>(() =>
     readCachedHostPaymentProfile()
@@ -164,9 +165,14 @@ export function App() {
 
   useEffect(() => {
     if (partyId) return;
+    setListSyncError('');
     const unsub = subscribeAllParties(
-      (list) => setRecentParties(list),
-      () => {
+      (list) => {
+        setListSyncError('');
+        setRecentParties(list);
+      },
+      (err) => {
+        setListSyncError(err.message || '無法讀取雲端派對列表');
         refreshList();
       }
     );
@@ -392,6 +398,7 @@ export function App() {
         onChangeTheme={handleChangeDefaultTheme}
         authBusy={authBusy}
         authError={authError}
+        listSyncError={listSyncError}
         onSignIn={handleSignIn}
         onSignOut={handleSignOut}
         onOpenParty={(id) => navigateToParty(id)}

@@ -44,6 +44,7 @@ interface HomeViewProps {
   onChangeTheme?: (theme: AppTheme) => void;
   authBusy?: boolean;
   authError?: string;
+  listSyncError?: string;
   onSignIn?: () => void;
   onSignOut?: () => void;
   onOpenParty: (partyId: string) => void;
@@ -81,6 +82,7 @@ export function HomeView({
   onChangeTheme,
   authBusy = false,
   authError = '',
+  listSyncError = '',
   onSignIn,
   onSignOut,
   onOpenParty,
@@ -392,6 +394,12 @@ export function HomeView({
         {authError ? (
           <p className="mt-3 rounded-xl bg-rose-50 px-3.5 py-2 text-xs font-medium text-rose-700">
             {authError}
+          </p>
+        ) : null}
+
+        {listSyncError ? (
+          <p className="mt-3 rounded-xl bg-amber-50 px-3.5 py-2 text-xs font-medium text-amber-900 ring-1 ring-amber-200">
+            雲端派對列表讀取失敗（{listSyncError}）。請確認 Firebase Console 已發佈最新 database.rules.json（允許公開讀取 parties）。
           </p>
         ) : null}
 
