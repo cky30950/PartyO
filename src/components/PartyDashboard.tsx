@@ -20,6 +20,7 @@ import {
   RotateCcw,
   Edit3,
   X,
+  Music,
 } from 'lucide-react';
 import type {
   AppTheme,
@@ -41,13 +42,14 @@ import { RsvpTab } from './RsvpTab';
 import { CalendarTab } from './CalendarTab';
 import { ExpensesTab } from './ExpensesTab';
 import { AlbumTab } from './AlbumTab';
+import { PlaylistTab } from './PlaylistTab';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { PushReminderBar } from './PushReminderBar';
 import { WeatherBanner } from './WeatherBanner';
 import { shareTextOrUrl } from '../lib/webShare';
 import { subscribeMediaApiBase } from '../lib/mediaApi';
 
-type TabKey = 'rsvp' | 'calendar' | 'expenses' | 'album';
+type TabKey = 'rsvp' | 'calendar' | 'expenses' | 'album' | 'playlist';
 
 interface PartyDashboardProps {
   party: Party;
@@ -101,7 +103,12 @@ export function PartyDashboard({
   onAdminSetRsvpApproval,
   onAdminRemoveGuest,
 }: PartyDashboardProps) {
-  const [activeTab, setActiveTab] = useState<TabKey>('rsvp');
+  const [activeTab, setActiveTab] = useState<TabKey>(() => {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('spotify')) {
+      return 'playlist';
+    }
+    return 'rsvp';
+  });
   const [copiedLink, setCopiedLink] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState(false);
   const [announcementDraft, setAnnouncementDraft] = useState(party.announcement ?? '');
@@ -298,7 +305,7 @@ export function PartyDashboard({
             </div>
           </div>
 
-          <nav className="mt-3 grid grid-cols-4 gap-1 rounded-2xl bg-slate-100 p-1">
+          <nav className="mt-3 grid grid-cols-5 gap-1 rounded-2xl bg-slate-100 p-1">
             <button
               type="button"
               onClick={() => setActiveTab('rsvp')}
@@ -309,7 +316,7 @@ export function PartyDashboard({
               }`}
             >
               <Users className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">活動報名</span>
+              <span className="truncate">報名</span>
               {isAdmin && pendingCount > 0 ? (
                 <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
                   {pendingCount}
@@ -326,7 +333,7 @@ export function PartyDashboard({
               }`}
             >
               <CalendarPlus className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">日曆邀請</span>
+              <span className="truncate">日曆</span>
             </button>
             <button
               type="button"
@@ -338,7 +345,7 @@ export function PartyDashboard({
               }`}
             >
               <Wallet className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">費用分攤</span>
+              <span className="truncate">分攤</span>
             </button>
             <button
               type="button"
@@ -350,7 +357,19 @@ export function PartyDashboard({
               }`}
             >
               <Camera className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">原圖相簿</span>
+              <span className="truncate">相簿</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('playlist')}
+              className={`flex items-center justify-center gap-1 rounded-xl py-2 text-[11px] font-semibold transition sm:gap-1.5 sm:text-xs ${
+                activeTab === 'playlist'
+                  ? 'bg-white text-brand-600 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Music className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">點歌</span>
             </button>
           </nav>
         </div>
@@ -526,6 +545,17 @@ export function PartyDashboard({
             authBusy={authBusy}
             mediaApiBase={mediaApiBase}
             onSignIn={onSignIn}
+          />
+        )}
+        {activeTab === 'playlist' && (
+          <PlaylistTab
+            party={party}
+            isAdmin={isAdmin}
+            currentUser={currentUser}
+            authBusy={authBusy}
+            mediaApiBase={mediaApiBase}
+            onSignIn={onSignIn}
+            onUpdateParty={onUpdateParty}
           />
         )}
 

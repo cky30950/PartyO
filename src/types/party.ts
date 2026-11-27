@@ -67,6 +67,9 @@ export interface Party {
   paymeQrImage?: string;
   fpsInfo?: string;
   fpsQrImage?: string;
+  spotifyPlaylistId?: string;
+  spotifyPlaylistUrl?: string;
+  spotifyPlaylistName?: string;
   guests: Guest[];
   rsvps?: Record<string, Guest>; // 以 Firebase Auth UID 為 key，訪客只能新增或更新自己的記錄
   expenses: Expense[];
@@ -115,4 +118,21 @@ export interface PartyPhoto {
   uploadedByUid: string;
   uploadedByName: string;
   uploadedAt: string;
+}
+
+export interface PartySong {
+  id: string;
+  partyId: string;
+  trackId: string;
+  uri: string;
+  name: string;
+  artists: string;
+  albumName?: string;
+  albumImage?: string;
+  durationMs?: number;
+  externalUrl: string;
+  requestedByUid: string;
+  requestedByName: string;
+  requestedAt: string;
+  syncedToSpotify?: boolean;
 }

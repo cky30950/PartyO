@@ -1,11 +1,24 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import {
+  addTrackToSpotifyPlaylist,
+  createSpotifyAuthUrl,
+  createSpotifyPlaylist,
+  disconnectSpotify,
+  getSpotifyStatus,
+  handleSpotifyCallback,
+  removeTrackFromSpotifyPlaylist,
+  searchSpotifyTracks,
+} from './spotify';
+
 export interface Env {
   PARTYO_BUCKET: R2Bucket;
   AI: Ai;
   FIREBASE_PROJECT_ID: string;
   ADMIN_EMAILS: string;
   WORKERS_AI_MODEL?: string;
+  SPOTIFY_CLIENT_ID?: string;
+  SPOTIFY_CLIENT_SECRET?: string;
   ALLOWED_ORIGIN?: string;
 }
 
@@ -503,13 +516,86 @@ export default {
         return await handleReceiptScan(request, env, url);
       }
 
+      // Spotify Web API 路由
+      if (request.method === 'GET' && pathname === '/api/spotify/status') {
+        return jsonResponse(env, await getSpotifyStatus(env, url.origin));
+      }
+
+      if (request.method === 'POST' && pathname === '/api/spotify/auth-url') {
+        const user = await verifyFirebaseAuth(request, env);
+        if (!user.isAdmin) {
+          return jsonResponse(env, { error: '只有主辦人可連結 Spotify 帳號' }, 403);
+        }
+        const body = (await request.json().catch(() => ({}))) as { returnUrl?: string };
+        return jsonResponse(env, await createSpotifyAuthUrl(env, url.origin, body.returnUrl || ''));
+      }
+
+      if (request.method === 'GET' && pathname === '/api/spotify/callback') {
+        return await handleSpotifyCallback(env, url);
+      }
+
+      if (request.method === 'POST' && pathname === '/api/spotify/disconnect') {
+        const user = await verifyFirebaseAuth(request, env);
+        if (!user.isAdmin) {
+          return jsonResponse(env, { error: '只有主辦人可解除 Spotify 連結' }, 403);
+        }
+        await disconnectSpotify(env);
+        return jsonResponse(env, { ok: true });
+      }
+
+      if (request.method === 'GET' && pathname === '/api/spotify/search') {
+        const q = url.searchParams.get('q') || '';
+        const tracks = await searchSpotifyTracks(env, q);
+        return jsonResponse(env, { tracks });
+      }
+
+      if (request.method === 'POST' && pathname === '/api/spotify/create-playlist') {
+        const user = await verifyFirebaseAuth(request, env);
+        if (!user.isAdmin) {
+          return jsonResponse(env, { error: '只有主辦人可建立活動專屬歌單' }, 403);
+        }
+        const body = (await request.json().catch(() => ({}))) as {
+          name?: string;
+          description?: string;
+        };
+        return jsonResponse(
+          env,
+          await createSpotifyPlaylist(env, body.name || '', body.description || '')
+        );
+      }
+
+      if (request.method === 'POST' && pathname === '/api/spotify/add-track') {
+        await verifyFirebaseAuth(request, env);
+        const body = (await request.json().catch(() => ({}))) as {
+          playlistId?: string;
+          uri?: string;
+        };
+        if (!body.playlistId || !body.uri || !body.uri.startsWith('spotify:track:')) {
+          return jsonResponse(env, { error: '缺少有效的 playlistId 或歌曲 URI' }, 400);
+        }
+        return jsonResponse(env, await addTrackToSpotifyPlaylist(env, body.playlistId, body.uri));
+      }
+
+      if (request.method === 'POST' && pathname === '/api/spotify/remove-track') {
+        await verifyFirebaseAuth(request, env);
+        const body = (await request.json().catch(() => ({}))) as {
+          playlistId?: string;
+          uri?: string;
+        };
+        if (!body.playlistId || !body.uri || !body.uri.startsWith('spotify:track:')) {
+          return jsonResponse(env, { error: '缺少有效的 playlistId 或歌曲 URI' }, 400);
+        }
+        await removeTrackFromSpotifyPlaylist(env, body.playlistId, body.uri);
+        return jsonResponse(env, { ok: true });
+      }
+
       if (pathname.startsWith('/api/files/')) {
         const key = pathname
           .slice('/api/files/'.length)
           .split('/')
           .map(decodeURIComponent)
           .join('/');
-        if (!key || key.includes('..')) {
+        if (!key || key.includes('..') || key.startsWith('spotify/')) {
           return jsonResponse(env, { error: '無效的檔案路徑' }, 400);
         }
         if (request.method === 'GET') {

@@ -41,6 +41,15 @@
         }
       }
     },
+    "partySongs": {
+      "$partyId": {
+        ".read": "$partyId.length >= 8",
+        "$songId": {
+          ".write": "auth != null && $partyId.length >= 8 && ((auth.token.email_verified == true && (auth.token.email.toLowerCase() == 'cky30950@gmail.com' || root.child('adminConfig/admins/' + auth.token.email.toLowerCase().replace('.', ',')).val() == true)) || (!newData.exists() && data.exists() && data.child('requestedByUid').val() == auth.uid) || (newData.exists() && !data.exists() && newData.child('requestedByUid').val() == auth.uid))",
+          ".validate": "!newData.exists() || (newData.hasChildren(['id', 'partyId', 'trackId', 'uri', 'name', 'artists', 'externalUrl', 'requestedByUid', 'requestedByName', 'requestedAt']) && newData.child('partyId').val() == $partyId && newData.child('id').val() == $songId)"
+        }
+      }
+    },
     "parties": {
       ".read": true,
       ".write": "auth != null && auth.token.email_verified == true && (auth.token.email.toLowerCase() == 'cky30950@gmail.com' || root.child('adminConfig/admins/' + auth.token.email.toLowerCase().replace('.', ',')).val() == true)",
