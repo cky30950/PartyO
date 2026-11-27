@@ -12,6 +12,8 @@ import {
   Play,
   Plus,
   Search,
+  SkipBack,
+  SkipForward,
   Trash2,
   Unlink,
 } from 'lucide-react';
@@ -64,6 +66,7 @@ export function PlaylistTab({
   const [searchResults, setSearchResults] = useState<YoutubeTrackResult[]>([]);
   const [addingTrackId, setAddingTrackId] = useState<string | null>(null);
   const [deletingSongId, setDeletingSongId] = useState<string | null>(null);
+  const [playingSongId, setPlayingSongId] = useState<string | null>(null);
 
   useEffect(() => {
     return subscribePartySongs(party.id, setSongs);
@@ -430,21 +433,97 @@ export function PlaylistTab({
           </div>
         ) : null}
 
-        {/* 內嵌官方 YouTube 歌單播放器 */}
-        {party.youtubePlaylistId ? (
-          <div className="mt-4 overflow-hidden rounded-2xl bg-black ring-1 ring-slate-200/80">
-            <iframe
-              title="YouTube Music 聚會歌單播放器"
-              src={`https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(party.youtubePlaylistId)}`}
-              width="100%"
-              height="260"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              loading="lazy"
-              className="block w-full border-0"
-            />
-          </div>
-        ) : null}
+        {/* 內嵌官方 YouTube 播放器（支援整張歌單或點擊任一首單曲即點即播） */}
+        {(() => {
+          const activeIndex = playingSongId ? songs.findIndex((s) => s.id === playingSongId) : -1;
+          const activeSong = activeIndex >= 0 ? songs[activeIndex] : null;
+          const hasPlayer = Boolean(activeSong || party.youtubePlaylistId || songs.length > 0);
+          if (!hasPlayer) return null;
+
+          let embedSrc = '';
+          if (activeSong) {
+            const queueIds = songs
+              .map((s) => s.trackId)
+              .filter((id) => id && id !== activeSong.trackId);
+            const qs = new URLSearchParams({ autoplay: '1', rel: '0' });
+            if (queueIds.length > 0) qs.set('playlist', queueIds.join(','));
+            embedSrc = `https://www.youtube.com/embed/${encodeURIComponent(activeSong.trackId)}?${qs.toString()}`;
+          } else if (party.youtubePlaylistId) {
+            embedSrc = `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(party.youtubePlaylistId)}`;
+          } else if (songs.length > 0) {
+            const first = songs[0];
+            const queueIds = songs.slice(1).map((s) => s.trackId).filter(Boolean);
+            const qs = new URLSearchParams({ rel: '0' });
+            if (queueIds.length > 0) qs.set('playlist', queueIds.join(','));
+            embedSrc = `https://www.youtube.com/embed/${encodeURIComponent(first.trackId)}?${qs.toString()}`;
+          }
+
+          const handlePrev = () => {
+            if (songs.length === 0) return;
+            const nextIdx = activeIndex > 0 ? activeIndex - 1 : songs.length - 1;
+            setPlayingSongId(songs[nextIdx].id);
+          };
+          const handleNext = () => {
+            if (songs.length === 0) return;
+            const nextIdx = activeIndex >= 0 && activeIndex < songs.length - 1 ? activeIndex + 1 : 0;
+            setPlayingSongId(songs[nextIdx].id);
+          };
+
+          return (
+            <div className="mt-4 space-y-2">
+              <div className="overflow-hidden rounded-2xl bg-black ring-1 ring-slate-200/80">
+                <iframe
+                  key={embedSrc}
+                  title="YouTube Music 聚會歌單播放器"
+                  src={embedSrc}
+                  width="100%"
+                  height="240"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="block w-full border-0"
+                />
+              </div>
+              {songs.length > 0 ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-1.5 text-[11px] text-slate-600 ring-1 ring-slate-200/70">
+                  <span className="truncate font-medium">
+                    {activeSong
+                      ? `正在播放：${activeSong.name}`
+                      : party.youtubePlaylistId
+                      ? `歌單模式：${party.youtubePlaylistName || '聚會歌單'}`
+                      : `點歌單首曲：${songs[0].name}`}
+                  </span>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={handlePrev}
+                      title="上一首"
+                      className="inline-flex items-center gap-0.5 rounded-lg bg-white px-2 py-1 font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100"
+                    >
+                      <SkipBack className="h-3 w-3" /> 上一首
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNext}
+                      title="下一首"
+                      className="inline-flex items-center gap-0.5 rounded-lg bg-white px-2 py-1 font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100"
+                    >
+                      下一首 <SkipForward className="h-3 w-3" />
+                    </button>
+                    {activeSong && party.youtubePlaylistId ? (
+                      <button
+                        type="button"
+                        onClick={() => setPlayingSongId(null)}
+                        className="rounded-lg px-2 py-1 font-semibold text-rose-600 hover:bg-rose-50"
+                      >
+                        回歌單
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          );
+        })()}
       </section>
 
       {/* 搜尋歌曲或貼上連結點歌 */}
@@ -610,7 +689,20 @@ export function PlaylistTab({
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-1.5">
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setPlayingSongId(song.id)}
+                      title="在頁內播放器立即播放"
+                      className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
+                        playingSongId === song.id
+                          ? 'bg-rose-600 text-white'
+                          : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
+                      }`}
+                    >
+                      <Play className="h-3 w-3" />
+                      {playingSongId === song.id ? '播放中' : '播放'}
+                    </button>
                     <a
                       href={song.externalUrl}
                       target="_blank"
