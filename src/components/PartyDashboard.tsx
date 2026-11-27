@@ -43,6 +43,7 @@ import { CalendarTab } from './CalendarTab';
 import { ExpensesTab } from './ExpensesTab';
 import { AlbumTab } from './AlbumTab';
 import { PlaylistTab } from './PlaylistTab';
+import { PartyThemeMusicPlayer } from './PartyThemeMusicPlayer';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { PushReminderBar } from './PushReminderBar';
 import { WeatherBanner } from './WeatherBanner';
@@ -111,6 +112,7 @@ export function PartyDashboard({
   });
   const [copiedLink, setCopiedLink] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState(false);
+  const [themePauseSignal, setThemePauseSignal] = useState(0);
   const [announcementDraft, setAnnouncementDraft] = useState(party.announcement ?? '');
   const [mediaApiBase, setMediaApiBase] = useState('');
 
@@ -556,6 +558,7 @@ export function PartyDashboard({
             mediaApiBase={mediaApiBase}
             onSignIn={onSignIn}
             onUpdateParty={onUpdateParty}
+            onStartPlayingTrack={() => setThemePauseSignal((n) => n + 1)}
           />
         )}
 
@@ -584,6 +587,14 @@ export function PartyDashboard({
           )}
         </footer>
       </main>
+
+      <PartyThemeMusicPlayer
+        party={party}
+        isAdmin={isAdmin}
+        mediaApiBase={mediaApiBase}
+        pauseSignal={themePauseSignal}
+        onUpdateParty={onUpdateParty}
+      />
     </div>
   );
 }

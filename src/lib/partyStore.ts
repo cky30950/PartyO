@@ -79,6 +79,16 @@ function normalizeParty(raw: Partial<Party> & { id?: string }, fallbackId = ''):
     youtubePlaylistId: raw.youtubePlaylistId ?? '',
     youtubePlaylistUrl: raw.youtubePlaylistUrl ?? '',
     youtubePlaylistName: raw.youtubePlaylistName ?? '',
+    themeSong:
+      raw.themeSong && typeof raw.themeSong === 'object' && raw.themeSong.videoId
+        ? {
+            videoId: raw.themeSong.videoId,
+            title: raw.themeSong.title || '',
+            artists: raw.themeSong.artists || '',
+            thumbnail: raw.themeSong.thumbnail || '',
+            url: raw.themeSong.url || `https://music.youtube.com/watch?v=${raw.themeSong.videoId}`,
+          }
+        : undefined,
     guests: toArray<Guest>(raw.guests),
     rsvps: raw.rsvps && typeof raw.rsvps === 'object' ? raw.rsvps : {},
     expenses,

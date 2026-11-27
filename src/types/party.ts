@@ -48,6 +48,14 @@ export interface SettlementPayment {
   paidAt?: string;
 }
 
+export interface PartyThemeSong {
+  videoId: string;
+  title: string;
+  artists?: string;
+  thumbnail?: string;
+  url?: string;
+}
+
 export interface Party {
   id: string;
   title: string;
@@ -70,6 +78,7 @@ export interface Party {
   youtubePlaylistId?: string;
   youtubePlaylistUrl?: string;
   youtubePlaylistName?: string;
+  themeSong?: PartyThemeSong;
   spotifyPlaylistId?: string;
   spotifyPlaylistUrl?: string;
   spotifyPlaylistName?: string;

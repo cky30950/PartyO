@@ -14,6 +14,7 @@ import {
   Search,
   SkipBack,
   SkipForward,
+  Sparkles,
   Trash2,
   Unlink,
 } from 'lucide-react';
@@ -40,6 +41,7 @@ interface PlaylistTabProps {
   mediaApiBase: string;
   onSignIn: () => Promise<void>;
   onUpdateParty: (updated: Party) => Promise<void>;
+  onStartPlayingTrack?: () => void;
 }
 
 export function PlaylistTab({
@@ -50,6 +52,7 @@ export function PlaylistTab({
   mediaApiBase,
   onSignIn,
   onUpdateParty,
+  onStartPlayingTrack,
 }: PlaylistTabProps) {
   const [songs, setSongs] = useState<PartySong[]>([]);
   const [status, setStatus] = useState<YoutubeStatus | null>(null);
@@ -268,6 +271,31 @@ export function PlaylistTab({
     }
   }
 
+  async function handleSetThemeSong(params: {
+    videoId: string;
+    title: string;
+    artists?: string;
+    thumbnail?: string;
+    url?: string;
+  }) {
+    if (!isAdmin) return;
+    try {
+      await onUpdateParty({
+        ...party,
+        themeSong: {
+          videoId: params.videoId,
+          title: params.title,
+          artists: params.artists || '',
+          thumbnail: params.thumbnail || '',
+          url: params.url || `https://music.youtube.com/watch?v=${params.videoId}`,
+        },
+      });
+      toast.success(`已將「${params.title}」設為此活動主題曲`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '設定主題曲失敗');
+    }
+  }
+
   return (
     <div className="space-y-5">
       {/* 頂部：YouTube Music 聚會共同點歌單與主辦人設定 */}
@@ -461,11 +489,13 @@ export function PlaylistTab({
           const handlePrev = () => {
             if (songs.length === 0) return;
             const nextIdx = activeIndex > 0 ? activeIndex - 1 : songs.length - 1;
+            onStartPlayingTrack?.();
             setPlayingSongId(songs[nextIdx].id);
           };
           const handleNext = () => {
             if (songs.length === 0) return;
             const nextIdx = activeIndex >= 0 && activeIndex < songs.length - 1 ? activeIndex + 1 : 0;
+            onStartPlayingTrack?.();
             setPlayingSongId(songs[nextIdx].id);
           };
 
@@ -607,26 +637,50 @@ export function PlaylistTab({
                         </div>
                       </div>
 
-                      <button
-                        type="button"
-                        disabled={alreadyAdded || isAdding}
-                        onClick={() => handleAddTrack(track)}
-                        className={`inline-flex shrink-0 items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
-                          alreadyAdded
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50'
-                        }`}
-                      >
-                        {alreadyAdded ? (
-                          <>
-                            <Check className="h-3.5 w-3.5" /> 已點播
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="h-3.5 w-3.5" /> {isAdding ? '加入中...' : '點歌'}
-                          </>
-                        )}
-                      </button>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        {isAdmin ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleSetThemeSong({
+                                videoId: track.id,
+                                title: track.title,
+                                artists: track.artists,
+                                thumbnail: track.thumbnail,
+                                url: track.musicUrl,
+                              })
+                            }
+                            className={`inline-flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                              party.themeSong?.videoId === track.id
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-amber-50 hover:text-amber-800'
+                            }`}
+                          >
+                            <Sparkles className="h-3 w-3" />
+                            {party.themeSong?.videoId === track.id ? '主題曲' : '設主題曲'}
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          disabled={alreadyAdded || isAdding}
+                          onClick={() => handleAddTrack(track)}
+                          className={`inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
+                            alreadyAdded
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50'
+                          }`}
+                        >
+                          {alreadyAdded ? (
+                            <>
+                              <Check className="h-3.5 w-3.5" /> 已點播
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="h-3.5 w-3.5" /> {isAdding ? '加入中...' : '點歌'}
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -690,9 +744,35 @@ export function PlaylistTab({
                   </div>
 
                   <div className="flex shrink-0 items-center gap-1">
+                    {isAdmin ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleSetThemeSong({
+                            videoId: song.trackId,
+                            title: song.name,
+                            artists: song.artists,
+                            thumbnail: song.albumImage,
+                            url: song.externalUrl,
+                          })
+                        }
+                        title="設為此活動專屬主題曲"
+                        className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
+                          party.themeSong?.videoId === song.trackId
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-800'
+                        }`}
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        {party.themeSong?.videoId === song.trackId ? '主題曲' : '主題'}
+                      </button>
+                    ) : null}
                     <button
                       type="button"
-                      onClick={() => setPlayingSongId(song.id)}
+                      onClick={() => {
+                        onStartPlayingTrack?.();
+                        setPlayingSongId(song.id);
+                      }}
                       title="在頁內播放器立即播放"
                       className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
                         playingSongId === song.id
