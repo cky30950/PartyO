@@ -40,7 +40,51 @@ interface JwkKey extends JsonWebKey {
 const FIREBASE_JWKS_URL =
   'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
 
+// R2 免費額度為 10 GB，硬性鎖死在 9 GB（保留 1 GB 緩衝）避免產生任何儲存費用
+const MAX_TOTAL_STORAGE_BYTES = 9 * 1024 * 1024 * 1024;
+const STORAGE_CACHE_TTL_MS = 60 * 1000;
+
 let cachedJwks: { keys: JwkKey[]; expiresAt: number } | null = null;
+let cachedStorage: { bytes: number; expiresAt: number } | null = null;
+
+async function getTotalBucketBytes(env: Env): Promise<number> {
+  if (cachedStorage && Date.now() < cachedStorage.expiresAt) {
+    return cachedStorage.bytes;
+  }
+  let total = 0;
+  let cursor: string | undefined;
+  let pages = 0;
+  do {
+    const listed = await env.PARTYO_BUCKET.list({ limit: 1000, cursor });
+    for (const obj of listed.objects) {
+      total += obj.size;
+    }
+    cursor = listed.truncated ? listed.cursor : undefined;
+    pages++;
+  } while (cursor && pages < 50);
+  cachedStorage = { bytes: total, expiresAt: Date.now() + STORAGE_CACHE_TTL_MS };
+  return total;
+}
+
+function adjustCachedStorage(deltaBytes: number): void {
+  if (!cachedStorage) return;
+  cachedStorage.bytes = Math.max(0, cachedStorage.bytes + deltaBytes);
+}
+
+async function checkStorageQuota(env: Env, incomingBytes: number): Promise<Response | null> {
+  const usedBytes = await getTotalBucketBytes(env);
+  if (usedBytes + incomingBytes > MAX_TOTAL_STORAGE_BYTES) {
+    const usedGb = (usedBytes / (1024 * 1024 * 1024)).toFixed(2);
+    return jsonResponse(
+      env,
+      {
+        error: `雲端相簿免費儲存空間已達 9 GB 安全上限（目前已用約 ${usedGb} GB），為避免產生收費已自動暫停新上傳，請先清理舊活動相片後再試。`,
+      },
+      507
+    );
+  }
+  return null;
+}
 
 function corsHeaders(env: Env, extra?: Record<string, string>): Record<string, string> {
   return {
@@ -230,6 +274,9 @@ async function handlePhotoUpload(request: Request, env: Env, url: URL): Promise<
     );
   }
 
+  const quotaBlocked = await checkStorageQuota(env, body.byteLength);
+  if (quotaBlocked) return quotaBlocked;
+
   const ext = inferExtension(rawFileName, contentType);
   const key =
     kind === 'thumb'
@@ -250,6 +297,7 @@ async function handlePhotoUpload(request: Request, env: Env, url: URL): Promise<
       uploadedAt: new Date().toISOString(),
     },
   });
+  adjustCachedStorage(body.byteLength);
 
   return jsonResponse(env, {
     key,
@@ -319,6 +367,9 @@ async function handleReceiptScan(request: Request, env: Env, url: URL): Promise<
     return jsonResponse(env, { error: '收據圖片大小需介於 1B 至 20MB 之間' }, 413);
   }
 
+  const quotaBlocked = await checkStorageQuota(env, body.byteLength);
+  if (quotaBlocked) return quotaBlocked;
+
   const receiptId = `rcpt_${Date.now().toString(36)}_${crypto.randomUUID().slice(0, 8)}`;
   const ext = inferExtension(rawFileName, contentType);
   const receiptKey = `receipts/${partyId}/${receiptId}.${ext}`;
@@ -337,6 +388,7 @@ async function handleReceiptScan(request: Request, env: Env, url: URL): Promise<
       uploadedAt: new Date().toISOString(),
     },
   });
+  adjustCachedStorage(body.byteLength);
 
   const receiptUrl = buildFileUrl(url.origin, receiptKey);
 
@@ -486,6 +538,7 @@ async function handleDeleteFile(request: Request, env: Env, key: string): Promis
     return jsonResponse(env, { error: '無權限刪除此檔案' }, 403);
   }
   await env.PARTYO_BUCKET.delete(key);
+  adjustCachedStorage(-(head.size || 0));
   return jsonResponse(env, { ok: true, deleted: true });
 }
 
