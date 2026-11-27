@@ -12,13 +12,12 @@ import {
   Play,
   Plus,
   Search,
-  SkipBack,
-  SkipForward,
   Sparkles,
   Trash2,
   Unlink,
 } from 'lucide-react';
 import type { Party, PartySong } from '../types/party';
+import { PlaylistAudioPlayer } from './PlaylistAudioPlayer';
 import {
   createPartyYoutubePlaylist,
   deletePartySong,
@@ -70,6 +69,7 @@ export function PlaylistTab({
   const [addingTrackId, setAddingTrackId] = useState<string | null>(null);
   const [deletingSongId, setDeletingSongId] = useState<string | null>(null);
   const [playingSongId, setPlayingSongId] = useState<string | null>(null);
+  const [autoPlayRequestId, setAutoPlayRequestId] = useState(0);
 
   useEffect(() => {
     return subscribePartySongs(party.id, setSongs);
@@ -298,13 +298,13 @@ export function PlaylistTab({
 
   return (
     <div className="space-y-5">
-      {/* 頂部：YouTube Music 聚會共同點歌單與主辦人設定 */}
+      {/* 頂部：聚會共同點歌單與主辦人設定 */}
       <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
               <Music className="h-4 w-4 text-rose-600" />
-              YouTube Music 聚會共同點歌單
+              聚會共同點歌單
             </h2>
             <p className="mt-0.5 text-xs text-slate-500">
               參加者無需 YouTube Music Premium，直接搜歌或貼上連結即可即時加入主辦人的派對歌單。
@@ -461,99 +461,19 @@ export function PlaylistTab({
           </div>
         ) : null}
 
-        {/* 內嵌官方 YouTube 播放器（支援整張歌單或點擊任一首單曲即點即播） */}
-        {(() => {
-          const activeIndex = playingSongId ? songs.findIndex((s) => s.id === playingSongId) : -1;
-          const activeSong = activeIndex >= 0 ? songs[activeIndex] : null;
-          const hasPlayer = Boolean(activeSong || party.youtubePlaylistId || songs.length > 0);
-          if (!hasPlayer) return null;
-
-          let embedSrc = '';
-          if (activeSong) {
-            const queueIds = songs
-              .map((s) => s.trackId)
-              .filter((id) => id && id !== activeSong.trackId);
-            const qs = new URLSearchParams({ autoplay: '1', rel: '0' });
-            if (queueIds.length > 0) qs.set('playlist', queueIds.join(','));
-            embedSrc = `https://www.youtube.com/embed/${encodeURIComponent(activeSong.trackId)}?${qs.toString()}`;
-          } else if (party.youtubePlaylistId) {
-            embedSrc = `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(party.youtubePlaylistId)}`;
-          } else if (songs.length > 0) {
-            const first = songs[0];
-            const queueIds = songs.slice(1).map((s) => s.trackId).filter(Boolean);
-            const qs = new URLSearchParams({ rel: '0' });
-            if (queueIds.length > 0) qs.set('playlist', queueIds.join(','));
-            embedSrc = `https://www.youtube.com/embed/${encodeURIComponent(first.trackId)}?${qs.toString()}`;
-          }
-
-          const handlePrev = () => {
-            if (songs.length === 0) return;
-            const nextIdx = activeIndex > 0 ? activeIndex - 1 : songs.length - 1;
-            onStartPlayingTrack?.();
-            setPlayingSongId(songs[nextIdx].id);
-          };
-          const handleNext = () => {
-            if (songs.length === 0) return;
-            const nextIdx = activeIndex >= 0 && activeIndex < songs.length - 1 ? activeIndex + 1 : 0;
-            onStartPlayingTrack?.();
-            setPlayingSongId(songs[nextIdx].id);
-          };
-
-          return (
-            <div className="mt-4 space-y-2">
-              <div className="overflow-hidden rounded-2xl bg-black ring-1 ring-slate-200/80">
-                <iframe
-                  key={embedSrc}
-                  title="YouTube Music 聚會歌單播放器"
-                  src={embedSrc}
-                  width="100%"
-                  height="240"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="block w-full border-0"
-                />
-              </div>
-              {songs.length > 0 ? (
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-1.5 text-[11px] text-slate-600 ring-1 ring-slate-200/70">
-                  <span className="truncate font-medium">
-                    {activeSong
-                      ? `正在播放：${activeSong.name}`
-                      : party.youtubePlaylistId
-                      ? `歌單模式：${party.youtubePlaylistName || '聚會歌單'}`
-                      : `點歌單首曲：${songs[0].name}`}
-                  </span>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={handlePrev}
-                      title="上一首"
-                      className="inline-flex items-center gap-0.5 rounded-lg bg-white px-2 py-1 font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100"
-                    >
-                      <SkipBack className="h-3 w-3" /> 上一首
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleNext}
-                      title="下一首"
-                      className="inline-flex items-center gap-0.5 rounded-lg bg-white px-2 py-1 font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100"
-                    >
-                      下一首 <SkipForward className="h-3 w-3" />
-                    </button>
-                    {activeSong && party.youtubePlaylistId ? (
-                      <button
-                        type="button"
-                        onClick={() => setPlayingSongId(null)}
-                        className="rounded-lg px-2 py-1 font-semibold text-rose-600 hover:bg-rose-50"
-                      >
-                        回歌單
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          );
-        })()}
+        {/* 純音樂播放器（不顯示 MV 畫面） */}
+        {songs.length > 0 ? (
+          <PlaylistAudioPlayer
+            songs={songs}
+            activeSongId={playingSongId}
+            autoPlayRequestId={autoPlayRequestId}
+            onSelectSong={(id) => {
+              setPlayingSongId(id);
+              setAutoPlayRequestId((n) => n + 1);
+            }}
+            onStartPlayback={onStartPlayingTrack}
+          />
+        ) : null}
       </section>
 
       {/* 搜尋歌曲或貼上連結點歌 */}
@@ -772,6 +692,7 @@ export function PlaylistTab({
                       onClick={() => {
                         onStartPlayingTrack?.();
                         setPlayingSongId(song.id);
+                        setAutoPlayRequestId((n) => n + 1);
                       }}
                       title="在頁內播放器立即播放"
                       className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
