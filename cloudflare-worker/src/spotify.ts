@@ -27,6 +27,29 @@ export interface SpotifyTrackSummary {
   previewUrl: string | null;
 }
 
+async function readSpotifyErrorMessage(res: Response): Promise<string> {
+  try {
+    const raw = await res.text();
+    if (!raw) return '';
+    try {
+      const parsed = JSON.parse(raw) as {
+        error?: string | { message?: string };
+        error_description?: string;
+      };
+      if (typeof parsed.error === 'object' && parsed.error?.message) {
+        return parsed.error.message;
+      }
+      if (parsed.error_description) return parsed.error_description;
+      if (typeof parsed.error === 'string') return parsed.error;
+    } catch {
+      return raw.slice(0, 140);
+    }
+  } catch {
+    // ignore
+  }
+  return '';
+}
+
 export async function searchSpotifyTracks(
   env: SpotifyEnv,
   query: string
@@ -40,12 +63,15 @@ export async function searchSpotifyTracks(
     accessToken = (await requestSpotifyToken(env, { grant_type: 'client_credentials' }))
       .access_token;
   }
-  const params = new URLSearchParams({ q, type: 'track', market: 'HK', limit: '10' });
+  const params = new URLSearchParams({ q, type: 'track', limit: '10' });
   const res = await fetch(`https://api.spotify.com/v1/search?${params.toString()}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) {
-    throw new Error(`Spotify 搜尋失敗（HTTP ${res.status}）`);
+    const detail = await readSpotifyErrorMessage(res);
+    throw new Error(
+      `Spotify 搜尋失敗（HTTP ${res.status}${detail ? `：${detail}` : ''}）`
+    );
   }
   const json = (await res.json()) as {
     tracks?: {
@@ -93,7 +119,10 @@ export async function createSpotifyPlaylist(
     }),
   });
   if (!res.ok) {
-    throw new Error(`建立 Spotify 歌單失敗（HTTP ${res.status}）`);
+    const detail = await readSpotifyErrorMessage(res);
+    throw new Error(
+      `建立 Spotify 歌單失敗（HTTP ${res.status}${detail ? `：${detail}` : ''}）`
+    );
   }
   const json = (await res.json()) as {
     id: string;
@@ -114,7 +143,7 @@ export async function addTrackToSpotifyPlaylist(
 ): Promise<{ snapshotId: string }> {
   const token = await getValidUserAccessToken(env);
   const res = await fetch(
-    `https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}/tracks`,
+    `https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}/items`,
     {
       method: 'POST',
       headers: {
@@ -125,7 +154,10 @@ export async function addTrackToSpotifyPlaylist(
     }
   );
   if (!res.ok) {
-    throw new Error(`加入 Spotify 歌單失敗（HTTP ${res.status}）`);
+    const detail = await readSpotifyErrorMessage(res);
+    throw new Error(
+      `加入 Spotify 歌單失敗（HTTP ${res.status}${detail ? `：${detail}` : ''}）`
+    );
   }
   const json = (await res.json()) as { snapshot_id?: string };
   return { snapshotId: json.snapshot_id || '' };
@@ -138,17 +170,20 @@ export async function removeTrackFromSpotifyPlaylist(
 ): Promise<void> {
   const token = await getValidUserAccessToken(env);
   const res = await fetch(
-    `https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}/tracks`,
+    `https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}/items`,
     {
       method: 'DELETE',
       headers: {
         Authorization: `Bearer ${token.accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ tracks: [{ uri }] }),
+      body: JSON.stringify({ items: [{ uri }] }),
     }
   );
   if (!res.ok) {
-    throw new Error(`從 Spotify 歌單移除歌曲失敗（HTTP ${res.status}）`);
+    const detail = await readSpotifyErrorMessage(res);
+    throw new Error(
+      `從 Spotify 歌單移除歌曲失敗（HTTP ${res.status}${detail ? `：${detail}` : ''}）`
+    );
   }
 }

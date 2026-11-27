@@ -91,7 +91,16 @@ export async function requestSpotifyToken(
   });
 
   if (!res.ok) {
-    throw new Error(`Spotify 授權驗證失敗（HTTP ${res.status}）`);
+    let detail = '';
+    try {
+      const errJson = (await res.json()) as { error?: string; error_description?: string };
+      detail = errJson.error_description || errJson.error || '';
+    } catch {
+      // ignore
+    }
+    throw new Error(
+      `Spotify 授權驗證失敗（HTTP ${res.status}${detail ? `：${detail}` : ''}）`
+    );
   }
 
   return (await res.json()) as {
