@@ -104,7 +104,7 @@ export function PartyDashboard({
   onAdminRemoveGuest,
 }: PartyDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
-    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('spotify')) {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('yt')) {
       return 'playlist';
     }
     return 'rsvp';

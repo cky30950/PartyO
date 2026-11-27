@@ -1,15 +1,15 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import {
-  addTrackToSpotifyPlaylist,
-  createSpotifyAuthUrl,
-  createSpotifyPlaylist,
-  disconnectSpotify,
-  getSpotifyStatus,
-  handleSpotifyCallback,
-  removeTrackFromSpotifyPlaylist,
-  searchSpotifyTracks,
-} from './spotify';
+  addTrackToYoutubePlaylist,
+  createYoutubeAuthUrl,
+  createYoutubePlaylist,
+  disconnectYoutube,
+  getYoutubeStatus,
+  handleYoutubeCallback,
+  removeTrackFromYoutubePlaylist,
+  searchYoutubeMusicTracks,
+} from './youtube';
 
 export interface Env {
   PARTYO_BUCKET: R2Bucket;
@@ -17,8 +17,8 @@ export interface Env {
   FIREBASE_PROJECT_ID: string;
   ADMIN_EMAILS: string;
   WORKERS_AI_MODEL?: string;
-  SPOTIFY_CLIENT_ID?: string;
-  SPOTIFY_CLIENT_SECRET?: string;
+  YOUTUBE_CLIENT_ID?: string;
+  YOUTUBE_CLIENT_SECRET?: string;
   ALLOWED_ORIGIN?: string;
 }
 
@@ -516,40 +516,40 @@ export default {
         return await handleReceiptScan(request, env, url);
       }
 
-      // Spotify Web API 路由
-      if (request.method === 'GET' && pathname === '/api/spotify/status') {
-        return jsonResponse(env, await getSpotifyStatus(env, url.origin));
+      // YouTube Music（YouTube Data API v3）路由
+      if (request.method === 'GET' && pathname === '/api/youtube/status') {
+        return jsonResponse(env, await getYoutubeStatus(env, url.origin));
       }
 
-      if (request.method === 'POST' && pathname === '/api/spotify/auth-url') {
+      if (request.method === 'POST' && pathname === '/api/youtube/auth-url') {
         const user = await verifyFirebaseAuth(request, env);
         if (!user.isAdmin) {
-          return jsonResponse(env, { error: '只有主辦人可連結 Spotify 帳號' }, 403);
+          return jsonResponse(env, { error: '只有主辦人可連結 YouTube Music 帳號' }, 403);
         }
         const body = (await request.json().catch(() => ({}))) as { returnUrl?: string };
-        return jsonResponse(env, await createSpotifyAuthUrl(env, url.origin, body.returnUrl || ''));
+        return jsonResponse(env, await createYoutubeAuthUrl(env, url.origin, body.returnUrl || ''));
       }
 
-      if (request.method === 'GET' && pathname === '/api/spotify/callback') {
-        return await handleSpotifyCallback(env, url);
+      if (request.method === 'GET' && pathname === '/api/youtube/callback') {
+        return await handleYoutubeCallback(env, url);
       }
 
-      if (request.method === 'POST' && pathname === '/api/spotify/disconnect') {
+      if (request.method === 'POST' && pathname === '/api/youtube/disconnect') {
         const user = await verifyFirebaseAuth(request, env);
         if (!user.isAdmin) {
-          return jsonResponse(env, { error: '只有主辦人可解除 Spotify 連結' }, 403);
+          return jsonResponse(env, { error: '只有主辦人可解除 YouTube Music 連結' }, 403);
         }
-        await disconnectSpotify(env);
+        await disconnectYoutube(env);
         return jsonResponse(env, { ok: true });
       }
 
-      if (request.method === 'GET' && pathname === '/api/spotify/search') {
+      if (request.method === 'GET' && pathname === '/api/youtube/search') {
         const q = url.searchParams.get('q') || '';
-        const tracks = await searchSpotifyTracks(env, q);
+        const tracks = await searchYoutubeMusicTracks(env, q);
         return jsonResponse(env, { tracks });
       }
 
-      if (request.method === 'POST' && pathname === '/api/spotify/create-playlist') {
+      if (request.method === 'POST' && pathname === '/api/youtube/create-playlist') {
         const user = await verifyFirebaseAuth(request, env);
         if (!user.isAdmin) {
           return jsonResponse(env, { error: '只有主辦人可建立活動專屬歌單' }, 403);
@@ -560,32 +560,31 @@ export default {
         };
         return jsonResponse(
           env,
-          await createSpotifyPlaylist(env, body.name || '', body.description || '')
+          await createYoutubePlaylist(env, body.name || '', body.description || '')
         );
       }
 
-      if (request.method === 'POST' && pathname === '/api/spotify/add-track') {
+      if (request.method === 'POST' && pathname === '/api/youtube/add-track') {
         await verifyFirebaseAuth(request, env);
         const body = (await request.json().catch(() => ({}))) as {
           playlistId?: string;
-          uri?: string;
+          videoId?: string;
         };
-        if (!body.playlistId || !body.uri || !body.uri.startsWith('spotify:track:')) {
-          return jsonResponse(env, { error: '缺少有效的 playlistId 或歌曲 URI' }, 400);
+        if (!body.playlistId || !body.videoId || !/^[a-zA-Z0-9_-]{11}$/.test(body.videoId)) {
+          return jsonResponse(env, { error: '缺少有效的 playlistId 或歌曲 videoId' }, 400);
         }
-        return jsonResponse(env, await addTrackToSpotifyPlaylist(env, body.playlistId, body.uri));
+        return jsonResponse(env, await addTrackToYoutubePlaylist(env, body.playlistId, body.videoId));
       }
 
-      if (request.method === 'POST' && pathname === '/api/spotify/remove-track') {
+      if (request.method === 'POST' && pathname === '/api/youtube/remove-track') {
         await verifyFirebaseAuth(request, env);
         const body = (await request.json().catch(() => ({}))) as {
-          playlistId?: string;
-          uri?: string;
+          playlistItemId?: string;
         };
-        if (!body.playlistId || !body.uri || !body.uri.startsWith('spotify:track:')) {
-          return jsonResponse(env, { error: '缺少有效的 playlistId 或歌曲 URI' }, 400);
+        if (!body.playlistItemId) {
+          return jsonResponse(env, { error: '缺少有效的 playlistItemId' }, 400);
         }
-        await removeTrackFromSpotifyPlaylist(env, body.playlistId, body.uri);
+        await removeTrackFromYoutubePlaylist(env, body.playlistItemId);
         return jsonResponse(env, { ok: true });
       }
 
@@ -595,7 +594,7 @@ export default {
           .split('/')
           .map(decodeURIComponent)
           .join('/');
-        if (!key || key.includes('..') || key.startsWith('spotify/')) {
+        if (!key || key.includes('..') || key.startsWith('spotify/') || key.startsWith('youtube/')) {
           return jsonResponse(env, { error: '無效的檔案路徑' }, 400);
         }
         if (request.method === 'GET') {

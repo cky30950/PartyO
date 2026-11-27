@@ -67,6 +67,9 @@ export interface Party {
   paymeQrImage?: string;
   fpsInfo?: string;
   fpsQrImage?: string;
+  youtubePlaylistId?: string;
+  youtubePlaylistUrl?: string;
+  youtubePlaylistName?: string;
   spotifyPlaylistId?: string;
   spotifyPlaylistUrl?: string;
   spotifyPlaylistName?: string;
@@ -125,6 +128,7 @@ export interface PartySong {
   partyId: string;
   trackId: string;
   uri: string;
+  playlistItemId?: string;
   name: string;
   artists: string;
   albumName?: string;
@@ -134,5 +138,6 @@ export interface PartySong {
   requestedByUid: string;
   requestedByName: string;
   requestedAt: string;
+  syncedToYoutube?: boolean;
   syncedToSpotify?: boolean;
 }
