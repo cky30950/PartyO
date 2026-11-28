@@ -316,7 +316,7 @@ export function App() {
       }
     } catch (err) {
       const detail = err instanceof Error ? err.message : '權限不足或網路錯誤';
-      toast.error(`審核操作失敗：${detail}（請確認 Firebase Console 已發佈最新 database.rules.json）`);
+      toast.error(`審核操作失敗：${detail}（請確認雲端權限設定）`);
     }
   }
 
@@ -454,7 +454,7 @@ export function App() {
         <p className="text-base font-bold text-slate-800">搵唔到呢個派對活動</p>
         <p className="max-w-sm text-xs text-slate-500">
           {syncError
-            ? `連線錯誤：${syncError}（請檢查 Firebase Realtime Database 及安全規則設定）`
+            ? `連線錯誤：${syncError}（請檢查雲端資料庫及權限設定）`
             : '連結可能已失效，或該派對尚未建立，請向主辦人確認連結。'}
         </p>
         <button

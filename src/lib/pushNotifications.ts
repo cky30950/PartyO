@@ -124,14 +124,14 @@ export async function enablePartyPushNotification(params: {
 }): Promise<string> {
   const { partyId, uid, email, name, vapidKey } = params;
   if (!vapidKey.trim()) {
-    throw new Error('尚未設定 Firebase Web Push 金鑰（VAPID Key）');
+    throw new Error('尚未設定手機推送通知金鑰（VAPID Key）');
   }
   if (!isBrowserPushAvailable()) {
     throw new Error('此瀏覽器不支援網頁推送通知');
   }
   const supported = await isSupported();
   if (!supported) {
-    throw new Error('此裝置或瀏覽器模式暫不支援 Firebase 推送通知');
+    throw new Error('此裝置或瀏覽器模式暫不支援手機推送通知');
   }
 
   const permission = await Notification.requestPermission();

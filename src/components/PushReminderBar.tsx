@@ -145,7 +145,7 @@ export function PushReminderBar({
     try {
       await saveCloudVapidKey(trimmed);
       setShowKeySetup(false);
-      toast.success('已儲存 Firebase Web Push 金鑰，所有參加者現在都可以開啟通知');
+      toast.success('已儲存推送通知金鑰，所有參加者現在都可以開啟通知');
     } catch (err) {
       const msg = err instanceof Error ? err.message : '儲存金鑰失敗';
       toast.error(msg);
@@ -166,7 +166,7 @@ export function PushReminderBar({
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
               <KeyRound className="h-4 w-4 text-brand-600" />
-              <span>啟用免費手機推送通知（需貼上 Firebase VAPID 公鑰）</span>
+              <span>啟用免費手機推送通知（需貼上 Web Push 公鑰）</span>
             </div>
             <button
               type="button"
@@ -179,7 +179,7 @@ export function PushReminderBar({
           {showKeySetup ? (
             <form onSubmit={handleSaveVapidKey} className="space-y-2">
               <p className="text-[11px] leading-relaxed text-slate-500">
-                前往 Firebase Console → 專案設定 → Cloud Messaging → Web 推播憑證 → 產生金鑰組，複製公鑰貼上即可。
+                請於推播管理後台產生 Web Push 公鑰並複製貼上即可。
               </p>
               <div className="flex gap-2">
                 <input
@@ -187,7 +187,7 @@ export function PushReminderBar({
                   required
                   value={vapidDraft}
                   onChange={(e) => setVapidDraft(e.target.value)}
-                  placeholder="貼上 Firebase Web Push VAPID Public Key..."
+                  placeholder="貼上 Web Push VAPID Public Key..."
                   className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-brand-500"
                 />
                 <button

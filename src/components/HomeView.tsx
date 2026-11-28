@@ -209,8 +209,8 @@ export function HomeView({
       onRefreshList();
       onOpenParty(party.id);
     } catch (err) {
-      const detail = err instanceof Error ? err.message : '無法連線至 Firebase Realtime Database';
-      setErrorMsg(`建立失敗：${detail}（請確認 Firebase Console 已啟用 Realtime Database 並發佈規則）`);
+      const detail = err instanceof Error ? err.message : '無法連線至雲端資料庫';
+      setErrorMsg(`建立失敗：${detail}（請檢查網路或雲端權限設定）`);
     } finally {
       setSubmitting(false);
     }
@@ -219,7 +219,7 @@ export function HomeView({
   async function handleDelete(p: Party) {
     if (!isAdmin) return;
     const ok = window.confirm(
-      `確定要永久刪除「${p.title}」嗎？\n這會同時刪除 Firebase 雲端資料，已分享的連結亦會失效。`
+      `確定要永久刪除「${p.title}」嗎？\n這會同時刪除雲端資料，已分享的連結亦會失效。`
     );
     if (!ok) return;
     try {
@@ -399,7 +399,7 @@ export function HomeView({
 
         {listSyncError ? (
           <p className="mt-3 rounded-xl bg-amber-50 px-3.5 py-2 text-xs font-medium text-amber-900 ring-1 ring-amber-200">
-            雲端派對列表讀取失敗（{listSyncError}）。請確認 Firebase Console 已發佈最新 database.rules.json（允許公開讀取 parties）。
+            雲端派對列表讀取失敗（{listSyncError}），請稍後重試或檢查權限設定。
           </p>
         ) : null}
 

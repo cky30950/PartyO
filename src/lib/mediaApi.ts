@@ -122,7 +122,7 @@ export async function uploadPartyPhoto(params: {
   const { apiBase, partyId, file, user, uploaderName } = params;
   const base = normalizeApiBase(apiBase);
   if (!base) {
-    throw new Error('尚未設定 Cloudflare R2 媒體伺服器網址');
+    throw new Error('尚未設定媒體伺服器網址');
   }
 
   const idToken = await user.getIdToken();
@@ -324,7 +324,7 @@ export async function scanReceiptWithGemini(params: {
   const { apiBase, partyId, file, user } = params;
   const base = normalizeApiBase(apiBase);
   if (!base) {
-    throw new Error('尚未設定 Cloudflare Worker 網址，請先於相簿或此處設定連線網址');
+    throw new Error('尚未設定伺服器連線網址，請先於相簿設定連線網址');
   }
 
   const idToken = await user.getIdToken();

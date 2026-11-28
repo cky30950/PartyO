@@ -254,7 +254,7 @@ export function PartyDashboard({
                     title="永久刪除活動"
                     onClick={async () => {
                       const ok = window.confirm(
-                        `確定要永久刪除「${party.title}」嗎？\n這會同時刪除 Firebase 雲端資料，所有已分享的連結亦會失效。`
+                        `確定要永久刪除「${party.title}」嗎？\n這會同時刪除雲端資料，所有已分享的連結亦會失效。`
                       );
                       if (!ok) return;
                       try {

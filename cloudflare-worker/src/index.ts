@@ -132,7 +132,7 @@ async function getFirebaseJwks(): Promise<JwkKey[]> {
     return cachedJwks.keys;
   }
   const res = await fetch(FIREBASE_JWKS_URL);
-  if (!res.ok) throw new Error('無法取得 Firebase 公開金鑰');
+  if (!res.ok) throw new Error('無法取得登入驗證公開金鑰');
   const json = (await res.json()) as { keys?: JwkKey[] };
   const keys = json.keys ?? [];
   cachedJwks = { keys, expiresAt: Date.now() + 60 * 60 * 1000 };
@@ -345,7 +345,7 @@ async function handleReceiptScan(request: Request, env: Env, url: URL): Promise<
     return jsonResponse(env, { error: '只有主辦人／管理員可使用 AI 掃單功能' }, 403);
   }
   if (!env.AI) {
-    return jsonResponse(env, { error: 'Worker 尚未綁定 Cloudflare Workers AI' }, 500);
+    return jsonResponse(env, { error: '伺服器尚未啟用 AI 辨識服務' }, 500);
   }
 
   const partyId = sanitizeSegment(url.searchParams.get('partyId') || '', '');
@@ -458,7 +458,7 @@ async function handleReceiptScan(request: Request, env: Env, url: URL): Promise<
         {
           receiptKey,
           receiptUrl,
-          error: `收據已存入 R2，但 Workers AI 辨識失敗：${detail.slice(0, 200)}`,
+          error: `收據已保存，但 AI 辨識失敗：${detail.slice(0, 200)}`,
         },
         502
       );
