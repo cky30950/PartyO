@@ -52,10 +52,9 @@
   }
 }
 
-/* 像素圖示銳利渲染 */
+/* 高清圖示渲染 */
 img[src$="icon.svg"] {
-  image-rendering: pixelated;
-  border-radius: 4px !important;
+  border-radius: 6px !important;
   border: 2px solid var(--t-border);
   box-shadow: 2px 2px 0 var(--t-shadow);
 }

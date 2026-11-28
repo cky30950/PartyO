@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Calendar, Download, ExternalLink, Copy, Check, MessageCircle, MapPin, Image as ImageIcon, Share2 } from 'lucide-react';
+import { Calendar, Download, ExternalLink, Copy, Check, MapPin, Image as ImageIcon, Share2 } from 'lucide-react';
 import type { AppTheme, Party } from '../types/party';
 import {
   buildGoogleCalendarUrl,
@@ -25,7 +25,6 @@ export function CalendarTab({ party, shareUrl, appTheme }: CalendarTabProps) {
 
   const gcalUrl = buildGoogleCalendarUrl(party, shareUrl);
   const whatsappText = buildWhatsAppInviteText(party, shareUrl);
-  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappText)}`;
 
   async function copyText(text: string, key: 'link' | 'whatsapp') {
     try {
@@ -136,25 +135,15 @@ export function CalendarTab({ party, shareUrl, appTheme }: CalendarTabProps) {
           {whatsappText}
         </pre>
 
-        <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+        <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
           <button
             type="button"
             onClick={handleNativeShareInvite}
             className="flex items-center justify-center gap-1.5 rounded-2xl bg-brand-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-brand-700"
           >
             <Share2 className="h-4 w-4" />
-            系統原生分享（WhatsApp / IG / AirDrop）
+            分享
           </button>
-
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 rounded-2xl bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
-          >
-            <MessageCircle className="h-4 w-4" />
-            直接開 WhatsApp 傳送
-          </a>
 
           <button
             type="button"

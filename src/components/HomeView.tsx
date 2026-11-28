@@ -232,7 +232,7 @@ export function HomeView({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-rose-50/70 via-slate-50 to-slate-100 pb-16">
+    <div className="min-h-[100dvh] bg-gradient-to-b from-rose-50/70 via-slate-50 to-slate-100 pb-6">
       <header className="mx-auto max-w-2xl px-4 pt-6 pb-6">
         <div className="rpg-wood-bar flex flex-wrap items-center justify-between gap-2 rounded-md px-4 py-3 text-[#FFF9EB]">
           <div className="flex items-center gap-2.5">

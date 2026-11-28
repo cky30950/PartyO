@@ -2197,17 +2197,7 @@ export function ExpensesTab({
                 onClick={() => handleShareModalQr(activeQrModal)}
                 className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-slate-800"
               >
-                <Share2 className="h-4 w-4" />{' '}
-                {activeQrModal === 'fps-personal' ? '原生分享／儲存專屬付款碼' : '原生分享／儲存二維碼'}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleDownloadModalQr(activeQrModal)}
-                className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
-              >
-                <Download className="h-4 w-4" />{' '}
-                直接下載 PNG
+                <Share2 className="h-4 w-4" /> 分享
               </button>
 
               <button
