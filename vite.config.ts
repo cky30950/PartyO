@@ -10,7 +10,14 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: false,
       manifest: false,
-      includeAssets: ['icon.svg', 'manifest.webmanifest'],
+      includeAssets: [
+        'icon.svg',
+        'icon-192.png',
+        'icon-512.png',
+        'apple-touch-icon.png',
+        'favicon-32.png',
+        'manifest.webmanifest',
+      ],
       workbox: {
         cleanupOutdatedCaches: true,
         clientsClaim: true,

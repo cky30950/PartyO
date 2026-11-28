@@ -1,24 +1,60 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
-  <!-- 16-bit Tavern Wood & Gold Crest -->
-  <rect width="16" height="16" fill="#3B2314"/>
-  <rect x="1" y="1" width="14" height="14" fill="#6E4226"/>
-  <rect x="2" y="2" width="12" height="12" fill="#8C5633"/>
-  <!-- Gold Corner Studs -->
-  <rect x="2" y="2" width="1" height="1" fill="#F7C948"/>
-  <rect x="13" y="2" width="1" height="1" fill="#F7C948"/>
-  <rect x="2" y="13" width="1" height="1" fill="#F7C948"/>
-  <rect x="13" y="13" width="1" height="1" fill="#F7C948"/>
-  <!-- Pixel Tavern Mug & Foam -->
-  <rect x="4" y="4" width="6" height="2" fill="#FFFDF5"/>
-  <rect x="5" y="3" width="4" height="1" fill="#FFFDF5"/>
-  <rect x="4" y="6" width="6" height="6" fill="#F5B82E"/>
-  <rect x="5" y="6" width="2" height="5" fill="#FCE07A"/>
-  <rect x="4" y="12" width="6" height="1" fill="#C97E18"/>
-  <!-- Mug Handle -->
-  <rect x="10" y="7" width="2" height="1" fill="#FFFDF5"/>
-  <rect x="11" y="8" width="1" height="2" fill="#FFFDF5"/>
-  <rect x="10" y="10" width="2" height="1" fill="#FFFDF5"/>
-  <!-- Sparkle -->
-  <rect x="11" y="4" width="1" height="1" fill="#FFE88A"/>
-  <rect x="3" y="9" width="1" height="1" fill="#FFE88A"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7B4B2A"/>
+      <stop offset="100%" stop-color="#4A2B16"/>
+    </linearGradient>
+    <linearGradient id="beer" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFD54F"/>
+      <stop offset="55%" stop-color="#FFB300"/>
+      <stop offset="100%" stop-color="#E67E00"/>
+    </linearGradient>
+    <linearGradient id="foam" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#FFF3D6"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Full-bleed warm wooden badge background -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="24" y="24" width="464" height="464" rx="92" fill="none" stroke="#C88A3B" stroke-width="10" stroke-opacity="0.55"/>
+
+  <!-- Subtle golden corner rivets -->
+  <circle cx="72" cy="72" r="14" fill="#F4C44E"/>
+  <circle cx="440" cy="72" r="14" fill="#F4C44E"/>
+  <circle cx="72" cy="440" r="14" fill="#F4C44E"/>
+  <circle cx="440" cy="440" r="14" fill="#F4C44E"/>
+
+  <!-- Mug handle -->
+  <path d="M326 218 H372 C398 218 416 236 416 264 V320 C416 348 398 366 372 366 H326"
+        fill="none" stroke="#FFF6E5" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M326 218 H372 C398 218 416 236 416 264 V320 C416 348 398 366 372 366 H326"
+        fill="none" stroke="#D9C3A3" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+
+  <!-- Mug outer body -->
+  <rect x="132" y="180" width="208" height="236" rx="34" fill="#FFF8EC"/>
+  <!-- Golden beer fill -->
+  <rect x="150" y="198" width="172" height="198" rx="22" fill="url(#beer)"/>
+
+  <!-- Glass shine stripes -->
+  <rect x="176" y="224" width="22" height="146" rx="11" fill="#FFFDE7" opacity="0.55"/>
+  <rect x="225" y="224" width="22" height="146" rx="11" fill="#FFFDE7" opacity="0.32"/>
+  <rect x="274" y="224" width="22" height="146" rx="11" fill="#FFFDE7" opacity="0.22"/>
+
+  <!-- Fluffy foam top -->
+  <path d="M132 192
+           C124 166 144 136 174 136
+           C182 108 212 94 242 104
+           C262 90 296 98 308 124
+           C336 124 352 150 344 176
+           C344 196 328 210 308 210
+           H160
+           C142 210 132 204 132 192 Z"
+        fill="url(#foam)"/>
+  <!-- Foam drip -->
+  <path d="M294 198 V244 C294 256 314 256 314 244 V198 Z" fill="url(#foam)"/>
+
+  <!-- Cheerful sparkles -->
+  <path d="M392 122 L400 144 L422 152 L400 160 L392 182 L384 160 L362 152 L384 144 Z" fill="#FFE066"/>
+  <path d="M104 294 L110 310 L126 316 L110 322 L104 338 L98 322 L82 316 L98 310 Z" fill="#FFE066"/>
 </svg>
